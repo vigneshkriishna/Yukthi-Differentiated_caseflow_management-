@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.database import create_db_and_tables
+from app.core.exceptions import setup_exception_handlers
 from app.routers import auth, cases, schedule, reports, nlp
 
 
@@ -28,6 +29,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Setup global exception handlers
+setup_exception_handlers(app)
 
 # CORS middleware
 app.add_middleware(
