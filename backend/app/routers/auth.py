@@ -14,6 +14,7 @@ from app.core.security import (
 )
 from app.core.config import settings
 from app.models.user import User, UserCreate, UserPublic
+from app.models.audit_log import AuditAction
 from app.services.audit import audit_service
 
 
@@ -37,7 +38,7 @@ async def login(
         # Log failed login attempt
         audit_service.log_action(
             session=session,
-            action="login_failed",
+            action=AuditAction.LOGIN_FAILED,
             resource_type="user",
             description=f"Failed login attempt for username: {form_data.username}",
             ip_address=request.client.host if request.client else None,

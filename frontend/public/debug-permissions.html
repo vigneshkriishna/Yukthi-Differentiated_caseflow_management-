@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Permissions - DCM System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .button {
+            background: #3b82f6;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #2563eb;
+        }
+        .info {
+            background: #e0f2fe;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 DCM System - Permission Debug Tool</h1>
+        
+        <div class="info">
+            <h3>📋 Demo Login Credentials:</h3>
+            <ul>
+                <li><strong>Admin:</strong> admin / admin123</li>
+                <li><strong>Lawyer:</strong> lawyer1 / demo123</li>
+                <li><strong>Clerk:</strong> clerk1 / demo123</li>
+                <li><strong>Judge:</strong> judge1 / demo123</li>
+            </ul>
+        </div>
+
+        <h3>🔐 Login & Test Permissions:</h3>
+        <button class="button" onclick="testLogin('admin', 'admin123')">Login as Admin</button>
+        <button class="button" onclick="testLogin('lawyer1', 'demo123')">Login as Lawyer</button>
+        <button class="button" onclick="testLogin('clerk1', 'demo123')">Login as Clerk</button>
+        <button class="button" onclick="testLogin('judge1', 'demo123')">Login as Judge</button>
+        
+        <h3>📊 Current Session Status:</h3>
+        <button class="button" onclick="checkCurrentUser()">Check Current User</button>
+        <button class="button" onclick="checkPermissions()">Check Permissions</button>
+        <button class="button" onclick="testDocumentAPI()">Test Document API</button>
+        <button class="button" onclick="clearStorage()">Clear Login</button>
+        
+        <div id="results"></div>
+        
+        <div class="info">
+            <h3>🎯 How to Test Upload Feature:</h3>
+            <ol>
+                <li>Click one of the login buttons above (try <strong>Lawyer</strong> first)</li>
+                <li>Go to <a href="http://localhost:3001" target="_blank">http://localhost:3001</a></li>
+                <li>Navigate to <strong>Documents</strong> page</li>
+                <li>Look for the <strong>"Upload"</strong> tab next to "Documents" and "Analytics"</li>
+                <li>If you don't see it, come back and check your permissions here</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8001';
+        const results = document.getElementById('results');
+
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = message;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function clearResults() {
+            results.innerHTML = '';
+        }
+
+        async function testLogin(username, password) {
+            clearResults();
+            log(`🔄 Attempting login: ${username}...`);
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Store in localStorage like the real app does
+                    localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    log(`✅ Login successful!`, 'success');
+                    log(`<pre>${JSON.stringify(data.user, null, 2)}</pre>`);
+                    
+                    // Auto-check permissions
+                    setTimeout(checkPermissions, 500);
+                } else {
+                    const error = await response.json();
+                    log(`❌ Login failed: ${error.detail}`, 'error');
+                }
+            } catch (err) {
+                log(`❌ Network error: ${err.message}`, 'error');
+            }
+        }
+
+        function checkCurrentUser() {
+            clearResults();
+            const token = localStorage.getItem('access_token');
+            const userStr = localStorage.getItem('user');
+            
+            if (!token || !userStr) {
+                log('❌ No user logged in', 'error');
+                return;
+            }
+            
+            try {
+                const user = JSON.parse(userStr);
+                log('✅ Current user:', 'success');
+                log(`<pre>${JSON.stringify(user, null, 2)}</pre>`);
+            } catch (err) {
+                log(`❌ Error parsing user data: ${err.message}`, 'error');
+            }
+        }
+
+        function checkPermissions() {
+            clearResults();
+            const userStr = localStorage.getItem('user');
+            
+            if (!userStr) {
+                log('❌ No user logged in', 'error');
+                return;
+            }
+            
+            try {
+                const user = JSON.parse(userStr);
+                
+                // Simulate the same permission logic from the React app
+                const rolePermissions = {
+                    'admin': ['*'],
+                    'judge': ['cases.read', 'cases.update', 'hearings.read', 'hearings.create', 'hearings.update', 'schedule.read', 'reports.read'],
+                    'clerk': ['cases.read', 'cases.create', 'cases.update', 'hearings.read', 'hearings.create', 'schedule.read', 'documents.read', 'documents.create', 'documents.delete'],
+                    'lawyer': ['cases.read', 'hearings.read', 'documents.read', 'documents.create', 'schedule.read'],
+                    'public': ['cases.read', 'hearings.read', 'schedule.read']
+                };
+                
+                const userPermissions = rolePermissions[user.role] || [];
+                const canUpload = userPermissions.includes('*') || userPermissions.includes('documents.create');
+                
+                log(`✅ Permission Analysis for ${user.role}:`, 'success');
+                log(`<pre>Role: ${user.role}
+Permissions: ${JSON.stringify(userPermissions, null, 2)}
+Can Upload Documents: ${canUpload ? '✅ YES' : '❌ NO'}
+Can Delete Documents: ${userPermissions.includes('*') || userPermissions.includes('documents.delete') ? '✅ YES' : '❌ NO'}</pre>`);
+                
+                if (!canUpload) {
+                    log('❌ This role cannot upload documents. Try logging in as Admin, Clerk, or Lawyer.', 'error');
+                } else {
+                    log('✅ This role can upload documents! The Upload tab should be visible.', 'success');
+                }
+            } catch (err) {
+                log(`❌ Error checking permissions: ${err.message}`, 'error');
+            }
+        }
+
+        async function testDocumentAPI() {
+            clearResults();
+            const token = localStorage.getItem('access_token');
+            
+            if (!token) {
+                log('❌ No user logged in', 'error');
+                return;
+            }
+            
+            log('🔄 Testing document API...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/documents`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Document API works! Found ${data.length} documents`, 'success');
+                    
+                    if (data.length > 0) {
+                        log(`<pre>Sample document:
+${JSON.stringify(data[0], null, 2)}</pre>`);
+                    }
+                } else {
+                    const error = await response.json();
+                    log(`❌ Document API failed: ${error.detail}`, 'error');
+                }
+            } catch (err) {
+                log(`❌ Network error: ${err.message}`, 'error');
+            }
+        }
+
+        function clearStorage() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('user');
+            clearResults();
+            log('✅ Login data cleared', 'success');
+        }
+        
+        // Auto-check on page load
+        window.onload = function() {
+            checkCurrentUser();
+        };
+    </script>
+</body>
+</html>
