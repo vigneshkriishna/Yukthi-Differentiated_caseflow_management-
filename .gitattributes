@@ -1,0 +1,23 @@
+# TypeScript files
+*.ts linguist-detectable=true
+*.tsx linguist-detectable=true
+
+# JavaScript files
+*.js linguist-detectable=true
+*.jsx linguist-detectable=true
+
+# Python files
+*.py linguist-detectable=true
+
+# Exclude generated/vendor files from language stats
+package-lock.json linguist-generated=true
+*.min.js linguist-generated=true
+*.min.css linguist-generated=true
+
+# Documentation
+*.md linguist-documentation=true
+
+# Vendored code (if any)
+frontend/node_modules/* linguist-vendored
+backend/venv/* linguist-vendored
+backend/__pycache__/* linguist-vendored
