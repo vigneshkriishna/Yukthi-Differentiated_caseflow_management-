@@ -13,9 +13,7 @@ import {
   Zap,
   BookOpen,
   Target,
-  AlertTriangle,
-  CheckCircle,
-  Clock
+  CheckCircle
 } from 'lucide-react';
 
 interface AIAnalytics {
@@ -37,7 +35,7 @@ interface Classification {
 
 const AIDashboard: React.FC = () => {
   const [analytics, setAnalytics] = useState<AIAnalytics | null>(null);
-  const [loading, setLoading] = useState(false);
+  // Removed unused loading state
   
   // Case Classification Demo
   const [classificationInput, setClassificationInput] = useState({
@@ -74,7 +72,6 @@ const AIDashboard: React.FC = () => {
   };
 
   const loadAIAnalytics = async () => {
-    setLoading(true);
     try {
       const response = await fetch('http://127.0.0.1:8001/api/ai/dashboard-analytics', {
         headers: getAuthHeaders()
@@ -86,8 +83,6 @@ const AIDashboard: React.FC = () => {
       }
     } catch (error) {
       console.error('Error loading AI analytics:', error);
-    } finally {
-      setLoading(false);
     }
   };
 

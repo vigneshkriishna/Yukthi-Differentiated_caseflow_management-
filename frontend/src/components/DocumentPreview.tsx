@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Download, ExternalLink, Loader } from 'lucide-react';
+import { X, Download, ExternalLink } from 'lucide-react';
 
 interface DocumentPreviewProps {
   document: {

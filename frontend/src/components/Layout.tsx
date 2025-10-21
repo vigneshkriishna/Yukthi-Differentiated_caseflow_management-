@@ -15,7 +15,6 @@ import {
   LogOut, 
   Menu, 
   X,
-  Bell,
   Search,
   User,
   Brain,

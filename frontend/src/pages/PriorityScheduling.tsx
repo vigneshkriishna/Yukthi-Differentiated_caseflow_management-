@@ -50,7 +50,7 @@ const API_BASE = 'http://localhost:8001';
 const PriorityScheduling: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const {} = useAuth();
   const [cases, setCases] = useState<Case[]>([]);
   const [selectedCases, setSelectedCases] = useState<number[]>([]);
   const [filterPriority, setFilterPriority] = useState<string>('all');
