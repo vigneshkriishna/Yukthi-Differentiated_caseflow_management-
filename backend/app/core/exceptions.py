@@ -2,7 +2,7 @@
 Global Exception Handler for FastAPI Application
 Provides consistent error responses and proper error handling
 """
-from fastapi import FastAPI, Request, HTTPException, status
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -342,8 +342,6 @@ def check_rate_limit(user_id: str, endpoint: str, limit: int = 100, window: int 
 # Request logging middleware
 async def log_requests(request: Request, call_next):
     """Log all requests for monitoring"""
-    start_time = "2024-01-01T00:00:00Z"  # Would use time.time()
-    
     logger.info(f"Request: {request.method} {request.url.path}")
     
     response = await call_next(request)

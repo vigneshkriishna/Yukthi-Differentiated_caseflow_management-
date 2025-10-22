@@ -13,7 +13,6 @@ from app.models.case import (
     CaseStatus, CaseTrack, CaseOverride
 )
 from app.services.dcm_rules import dcm_engine
-from app.services.nlp import bns_assist
 from app.services.audit import audit_service
 from app.services.email_service import email_service
 from app.services.case_ingestion_service import CaseIngestionService

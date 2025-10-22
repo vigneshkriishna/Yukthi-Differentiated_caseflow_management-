@@ -10,14 +10,13 @@ from app.core.database import get_session
 from app.core.security import get_current_user, require_clerk, require_judge
 from app.models.user import User, UserRole
 from app.models.case import Case, CaseStatus
-from app.models.hearing import Hearing, HearingCreate, HearingUpdate, HearingPublic
+from app.models.hearing import Hearing, HearingUpdate, HearingPublic
 from app.models.bench import Bench
 from app.services.scheduler import scheduler
 from app.services.simple_smart_scheduling import (
     simple_smart_scheduling_service,
     SchedulingStrategy
 )
-from app.services.enhanced_nlp_service import bns_classification_service
 from app.services.audit import audit_service
 from pydantic import BaseModel
 
@@ -43,7 +42,6 @@ async def smart_schedule_cases(
     """
     try:
         start_date = request.start_date or datetime.now()
-        end_date = start_date + timedelta(days=request.days_ahead)
         
         result = simple_smart_scheduling_service.schedule_cases_simple(
             session=session,
@@ -174,7 +172,7 @@ async def allocate_cases(
     unscheduled_cases = list(session.exec(statement).all())
     
     # Get available benches
-    bench_statement = select(Bench).where(Bench.is_active == True)
+    bench_statement = select(Bench).where(Bench.is_active)
     benches = list(session.exec(bench_statement).all())
     
     if not benches:
@@ -186,7 +184,7 @@ async def allocate_cases(
     # Get available judges
     judge_statement = select(User).where(
         User.role.in_([UserRole.JUDGE, UserRole.ADMIN]),
-        User.is_active == True
+        User.is_active
     )
     judges = list(session.exec(judge_statement).all())
     

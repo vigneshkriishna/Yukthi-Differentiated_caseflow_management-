@@ -4,9 +4,7 @@ Advanced Analytics Service for Enhanced Dashboard
 Provides comprehensive analytics for the DCM system including AI insights
 """
 
-import json
-import os
-from typing import Dict, List, Optional
+from typing import Dict, List
 from datetime import datetime, timedelta
 from collections import defaultdict, Counter
 import random
@@ -289,12 +287,6 @@ class AdvancedAnalyticsService:
         week_predictions = [
             p for p in self.analytics_data['predictions']
             if (current_time - p['timestamp']).days <= 7
-        ]
-        
-        # Last 30 days analysis
-        month_predictions = [
-            p for p in self.analytics_data['predictions']
-            if (current_time - p['timestamp']).days <= 30
         ]
         
         report = {

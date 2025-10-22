@@ -6,7 +6,6 @@ try:
 except ImportError:
     from pydantic import BaseSettings
 from typing import List
-import os
 
 
 class Settings(BaseSettings):

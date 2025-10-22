@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 
 from app.core.database import get_session
 from app.core.security import get_current_user, require_admin
-from app.models.user import User, UserRole, UserBase
+from app.models.user import User, UserRole
 from app.core.security import get_password_hash
 from pydantic import BaseModel
 

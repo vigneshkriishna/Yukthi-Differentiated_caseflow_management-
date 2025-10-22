@@ -2,7 +2,7 @@
 Security utilities for authentication and authorization
 """
 from datetime import datetime, timedelta
-from typing import Optional, Union
+from typing import Optional
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from fastapi import HTTPException, status, Depends

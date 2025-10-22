@@ -3,12 +3,12 @@ Advanced Analytics Service for DCM System
 Provides comprehensive analytics and reporting functionality
 """
 
-from typing import Dict, List, Any, Optional
-from sqlmodel import Session, select, text
+from typing import Dict, Any
+from sqlmodel import Session, select
 from datetime import datetime, timedelta
 from app.models.case import Case, CaseStatus, CaseType, CasePriority
 from app.models.user import User, UserRole
-from app.models.audit_log import AuditLog, AuditAction
+from app.models.audit_log import AuditLog
 from app.models.hearing import Hearing
 import json
 

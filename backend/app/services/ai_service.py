@@ -5,12 +5,10 @@ Provides AI-powered features like case classification, document analysis, and re
 
 import pickle
 import json
-import os
 import logging
 from typing import List, Dict, Optional, Tuple, Any
 from pathlib import Path
 import re
-import asyncio
 from datetime import datetime
 
 # ML and NLP imports
@@ -19,7 +17,6 @@ try:
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.metrics.pairwise import cosine_similarity
     import nltk
-    from nltk.corpus import stopwords
     from nltk.tokenize import word_tokenize, sent_tokenize
     from nltk.stem import WordNetLemmatizer
     SKLEARN_AVAILABLE = True
@@ -139,7 +136,7 @@ class AIService:
                 tokens = word_tokenize(text)
                 lemmatized = [self.lemmatizer.lemmatize(token) for token in tokens]
                 return ' '.join(lemmatized)
-            except:
+            except Exception:
                 # Fallback if NLTK operations fail
                 return text
                 
@@ -662,9 +659,8 @@ class AIService:
         complex_score = sum(1 for keyword in complex_keywords if keyword in combined_text)
         simple_score = sum(1 for keyword in simple_keywords if keyword in combined_text)
         
-        # Text length and structure indicators
+        # Text length indicators
         word_count = len(description.split())
-        sentence_count = len([s for s in description.split('.') if s.strip()])
         
         # Overall complexity assessment
         if complex_score > simple_score and word_count > 500:

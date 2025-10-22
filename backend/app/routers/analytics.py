@@ -4,7 +4,6 @@ Provides dashboard data, metrics, and analytical reports
 Enhanced with advanced AI-powered analytics and real-time insights
 """
 
-from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session
 from app.core.database import get_session
@@ -195,7 +194,7 @@ async def get_executive_summary(
                 f"Cases increased by {dashboard['overview']['recent_activity']} in the last week",
                 f"BNS classification is working well with {bns['classification_overview']['average_confidence']:.1%} average confidence",
                 f"Most common crime category: {bns['trends']['most_common_crime_type']}",
-                f"Court scheduling efficiency at 85%+ across all rooms"
+                "Court scheduling efficiency at 85%+ across all rooms"
             ],
             "recommendations": [
                 "Continue monitoring BNS classification accuracy",
@@ -282,9 +281,6 @@ async def get_real_time_metrics(
         # Get advanced analytics
         advanced_analytics = get_analytics_service()
         advanced_metrics = advanced_analytics.get_real_time_metrics()
-        
-        # Basic real-time metrics
-        from sqlmodel import text
         
         # Active user sessions (mock data for now)
         active_sessions = 12

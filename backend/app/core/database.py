@@ -3,7 +3,6 @@ Database configuration and setup
 """
 from sqlmodel import create_engine, SQLModel, Session
 from app.core.config import settings
-import os
 
 
 # Create database engine

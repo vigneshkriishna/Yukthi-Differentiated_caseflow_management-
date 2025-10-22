@@ -3,6 +3,8 @@ NLP router for BNS section suggestions and legal assistance
 Enhanced with Day 3 ensemble model integration and email notifications
 """
 import logging
+import json
+from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from sqlmodel import Session, select
@@ -12,16 +14,13 @@ from app.core.security import get_current_user, require_clerk
 from app.models.user import User
 from app.models.case import Case
 from app.models.audit_log import AuditAction
-from app.services.nlp import bns_assist, BNSSuggestion
+from app.services.nlp import bns_assist
 from app.services.enhanced_nlp_service import bns_classification_service
 from app.services.audit import audit_service
 from app.services.email_service import email_service
 
 # Set up logging
 logger = logging.getLogger(__name__)
-from app.services.email_service import email_service
-import json
-from datetime import datetime
 
 
 router = APIRouter()
