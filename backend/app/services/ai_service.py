@@ -6,7 +6,7 @@ Provides AI-powered features like case classification, document analysis, and re
 import pickle
 import json
 import logging
-from typing import List, Dict, Optional, Tuple, Any
+from typing import List, Dict, Tuple, Any
 from pathlib import Path
 import re
 from datetime import datetime

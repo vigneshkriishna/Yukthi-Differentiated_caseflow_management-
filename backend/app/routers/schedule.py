@@ -41,8 +41,6 @@ async def smart_schedule_cases(
     Schedule cases using advanced AI-powered optimization algorithms
     """
     try:
-        start_date = request.start_date or datetime.now()
-        
         result = simple_smart_scheduling_service.schedule_cases_simple(
             session=session,
             case_ids=request.case_ids,

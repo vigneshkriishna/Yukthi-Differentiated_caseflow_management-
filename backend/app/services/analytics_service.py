@@ -10,7 +10,6 @@ from app.models.case import Case, CaseStatus, CaseType, CasePriority
 from app.models.user import User, UserRole
 from app.models.audit_log import AuditLog
 from app.models.hearing import Hearing
-import json
 
 
 class AnalyticsService:
@@ -242,9 +241,9 @@ class AnalyticsService:
             "activity_by_action": activity_by_action,
             "daily_trend": daily_activity,
             "user_engagement": {
-                "highly_active_users": len([uid for uid in active_users if len([l for l in recent_logs if l.user_id == uid]) > 50]),
-                "moderately_active_users": len([uid for uid in active_users if 10 <= len([l for l in recent_logs if l.user_id == uid]) <= 50]),
-                "low_activity_users": len([uid for uid in active_users if len([l for l in recent_logs if l.user_id == uid]) < 10])
+                "highly_active_users": len([uid for uid in active_users if len([log for log in recent_logs if log.user_id == uid]) > 50]),
+                "moderately_active_users": len([uid for uid in active_users if 10 <= len([log for log in recent_logs if log.user_id == uid]) <= 50]),
+                "low_activity_users": len([uid for uid in active_users if len([log for log in recent_logs if log.user_id == uid]) < 10])
             }
         }
     

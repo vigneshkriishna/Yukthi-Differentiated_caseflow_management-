@@ -3,7 +3,7 @@ Intelligent Case Ingestion Service
 Automatically detects case type, priority, and DCM track from case documents
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 import re
 from datetime import datetime, date
 from pymongo import MongoClient
