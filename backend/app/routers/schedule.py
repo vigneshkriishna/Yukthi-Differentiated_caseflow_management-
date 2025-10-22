@@ -2,24 +2,22 @@
 Schedule router for case scheduling and hearing management
 Enhanced with smart scheduling algorithms and optimization
 """
-from typing import List, Optional
 from datetime import date, datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel
 from sqlmodel import Session, select
+
 from app.core.database import get_session
 from app.core.security import get_current_user, require_clerk, require_judge
-from app.models.user import User, UserRole
-from app.models.case import Case, CaseStatus
-from app.models.hearing import Hearing, HearingUpdate, HearingPublic
 from app.models.bench import Bench
-from app.services.scheduler import scheduler
-from app.services.simple_smart_scheduling import (
-    simple_smart_scheduling_service,
-    SchedulingStrategy
-)
+from app.models.case import Case, CaseStatus
+from app.models.hearing import Hearing, HearingPublic, HearingUpdate
+from app.models.user import User, UserRole
 from app.services.audit import audit_service
-from pydantic import BaseModel
-
+from app.services.scheduler import scheduler
+from app.services.simple_smart_scheduling import SchedulingStrategy, simple_smart_scheduling_service
 
 router = APIRouter()
 
@@ -46,7 +44,7 @@ async def smart_schedule_cases(
             case_ids=request.case_ids,
             strategy=request.strategy
         )
-        
+
         # Update case statuses for successfully scheduled cases
         if "scheduled_hearings" in result:
             for hearing_info in result["scheduled_hearings"]:
@@ -55,14 +53,14 @@ async def smart_schedule_cases(
                     case.status = CaseStatus.SCHEDULED
                     session.add(case)
             session.commit()
-        
+
         return {
             "status": "success",
             "scheduling_result": result,
             "timestamp": datetime.now().isoformat(),
             "scheduled_by": current_user.username
         }
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -85,9 +83,9 @@ async def get_optimization_suggestions(
             session=session,
             days_ahead=days_ahead
         )
-        
+
         return suggestions
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -113,7 +111,7 @@ async def get_available_slots(
             end_date=end_date
         )
         return slots
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -137,14 +135,14 @@ async def analyze_scheduling_conflicts(
             "availability_analysis": {"status": "healthy"},
             "recommendations": ["Simplified analysis working"]
         }
-        
+
         return {
             "status": "success",
             "conflict_analysis": analysis,
             "timestamp": datetime.now().isoformat(),
             "analyzed_by": current_user.username
         }
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -168,30 +166,30 @@ async def allocate_cases(
         Case.status.in_([CaseStatus.FILED, CaseStatus.UNDER_REVIEW])
     )
     unscheduled_cases = list(session.exec(statement).all())
-    
+
     # Get available benches
     bench_statement = select(Bench).where(Bench.is_active)
     benches = list(session.exec(bench_statement).all())
-    
+
     if not benches:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No active benches available for scheduling"
         )
-    
+
     # Get available judges
     judge_statement = select(User).where(
         User.role.in_([UserRole.JUDGE, UserRole.ADMIN]),
         User.is_active
     )
     judges = list(session.exec(judge_statement).all())
-    
+
     if not judges:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No active judges available for scheduling"
         )
-    
+
     # Get existing hearings in the date range
     end_date = start_date + timedelta(days=num_days - 1)
     hearing_statement = select(Hearing).where(
@@ -199,7 +197,7 @@ async def allocate_cases(
         Hearing.hearing_date <= end_date
     )
     existing_hearings = list(session.exec(hearing_statement).all())
-    
+
     # Run scheduling algorithm
     result = scheduler.schedule_cases(
         cases=unscheduled_cases,
@@ -209,7 +207,7 @@ async def allocate_cases(
         judges=judges,
         existing_hearings=existing_hearings
     )
-    
+
     # Create hearing records
     created_hearings = []
     for hearing_create in result.scheduled_hearings:
@@ -218,7 +216,7 @@ async def allocate_cases(
         session.commit()
         session.refresh(hearing)
         created_hearings.append(hearing)
-        
+
         # Update case status
         case_statement = select(Case).where(Case.id == hearing.case_id)
         case = session.exec(case_statement).first()
@@ -226,7 +224,7 @@ async def allocate_cases(
             case.status = CaseStatus.SCHEDULED
             session.add(case)
             session.commit()
-        
+
         # Log hearing scheduling
         audit_service.log_hearing_scheduled(
             session=session,
@@ -237,7 +235,7 @@ async def allocate_cases(
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent")
         )
-    
+
     return {
         "scheduled_hearings": [
             {
@@ -277,7 +275,7 @@ async def list_hearings(
     List hearings with optional filtering
     """
     statement = select(Hearing)
-    
+
     # Apply filters
     if hearing_date:
         statement = statement.where(Hearing.hearing_date == hearing_date)
@@ -285,26 +283,26 @@ async def list_hearings(
         statement = statement.where(Hearing.bench_id == bench_id)
     if judge_id:
         statement = statement.where(Hearing.judge_id == judge_id)
-    
+
     # Role-based filtering
     if current_user.role == "judge":
         # Judges can only see hearings assigned to them
         statement = statement.where(Hearing.judge_id == current_user.id)
-    
+
     # Apply pagination and ordering
     statement = statement.order_by(
         Hearing.hearing_date.desc(),
         Hearing.start_time
     ).offset(skip).limit(limit)
-    
+
     hearings = list(session.exec(statement).all())
-    
+
     # Include case information
     result = []
     for hearing in hearings:
         case_statement = select(Case).where(Case.id == hearing.case_id)
         case = session.exec(case_statement).first()
-        
+
         result.append({
             "hearing": {
                 "id": hearing.id,
@@ -325,7 +323,7 @@ async def list_hearings(
                 "priority": case.priority.value
             } if case else None
         })
-    
+
     return result
 
 
@@ -340,21 +338,21 @@ async def get_hearing(
     """
     statement = select(Hearing).where(Hearing.id == hearing_id)
     hearing = session.exec(statement).first()
-    
+
     if not hearing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Hearing not found"
         )
-    
+
     # Check access permissions
-    if (current_user.role == "judge" and 
+    if (current_user.role == "judge" and
         hearing.judge_id != current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied to this hearing"
         )
-    
+
     return hearing
 
 
@@ -371,21 +369,21 @@ async def update_hearing(
     """
     statement = select(Hearing).where(Hearing.id == hearing_id)
     hearing = session.exec(statement).first()
-    
+
     if not hearing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Hearing not found"
         )
-    
+
     # Check if judge is assigned to this hearing
-    if (current_user.role == "judge" and 
+    if (current_user.role == "judge" and
         hearing.judge_id != current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied to this hearing"
         )
-    
+
     # Store original data for audit
     before_data = {
         "hearing_date": hearing.hearing_date.isoformat(),
@@ -393,16 +391,16 @@ async def update_hearing(
         "status": hearing.status.value,
         "notes": hearing.notes
     }
-    
+
     # Update fields
     update_data = hearing_update.dict(exclude_unset=True)
     for field, value in update_data.items():
         setattr(hearing, field, value)
-    
+
     session.add(hearing)
     session.commit()
     session.refresh(hearing)
-    
+
     # Store updated data for audit
     after_data = {
         "hearing_date": hearing.hearing_date.isoformat(),
@@ -410,7 +408,7 @@ async def update_hearing(
         "status": hearing.status.value,
         "notes": hearing.notes
     }
-    
+
     # Log hearing update
     audit_service.log_action(
         session=session,
@@ -425,7 +423,7 @@ async def update_hearing(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
-    
+
     return hearing
 
 
@@ -440,34 +438,34 @@ async def get_cause_list(
     Get cause list for a specific date
     """
     statement = select(Hearing).where(Hearing.hearing_date == date)
-    
+
     if bench_id:
         statement = statement.where(Hearing.bench_id == bench_id)
-    
+
     # Role-based filtering
     if current_user.role == "judge":
         statement = statement.where(Hearing.judge_id == current_user.id)
-    
+
     statement = statement.order_by(Hearing.start_time)
     hearings = list(session.exec(statement).all())
-    
+
     # Group by bench
     cause_list = {}
     for hearing in hearings:
         # Get bench info
         bench_statement = select(Bench).where(Bench.id == hearing.bench_id)
         bench = session.exec(bench_statement).first()
-        
+
         # Get case info
         case_statement = select(Case).where(Case.id == hearing.case_id)
         case = session.exec(case_statement).first()
-        
+
         # Get judge info
         judge_statement = select(User).where(User.id == hearing.judge_id)
         judge = session.exec(judge_statement).first()
-        
+
         bench_key = f"Bench {bench.court_number}" if bench else f"Bench {hearing.bench_id}"
-        
+
         if bench_key not in cause_list:
             cause_list[bench_key] = {
                 "bench": {
@@ -481,7 +479,7 @@ async def get_cause_list(
                 },
                 "hearings": []
             }
-        
+
         cause_list[bench_key]["hearings"].append({
             "hearing_id": hearing.id,
             "start_time": hearing.start_time,
@@ -496,7 +494,7 @@ async def get_cause_list(
                 "priority": case.priority.value
             } if case else None
         })
-    
+
     return {
         "date": date.isoformat(),
         "cause_list": cause_list,
@@ -515,9 +513,9 @@ async def get_scheduling_conflicts(
     """
     statement = select(Hearing).where(Hearing.hearing_date == date)
     hearings = list(session.exec(statement).all())
-    
+
     conflicts = scheduler.get_scheduling_conflicts(hearings, date)
-    
+
     return {
         "date": date.isoformat(),
         "conflicts": conflicts,

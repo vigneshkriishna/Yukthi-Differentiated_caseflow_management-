@@ -2,22 +2,24 @@
 NLP router for BNS section suggestions and legal assistance
 Enhanced with Day 3 ensemble model integration and email notifications
 """
-import logging
 import json
+import logging
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
-from sqlmodel import Session, select
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
+from sqlmodel import Session, select
+
 from app.core.database import get_session
 from app.core.security import get_current_user, require_clerk
-from app.models.user import User
-from app.models.case import Case
 from app.models.audit_log import AuditAction
-from app.services.nlp import bns_assist
-from app.services.enhanced_nlp_service import bns_classification_service
+from app.models.case import Case
+from app.models.user import User
 from app.services.audit import audit_service
 from app.services.email_service import email_service
+from app.services.enhanced_nlp_service import bns_classification_service
+from app.services.nlp import bns_assist
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -54,13 +56,13 @@ async def classify_bns_section(
     try:
         # Convert request to dictionary
         case_data = request.dict()
-        
+
         # Get classification from enhanced service
         result = bns_classification_service.classify_case(case_data)
-        
+
         if result.get("status") == "error":
             raise HTTPException(status_code=500, detail=result.get("error"))
-        
+
         # If enhanced model not available, try loading it
         if result.get("model_mode") == "fallback":
             # Try to load the enhanced model
@@ -71,7 +73,7 @@ async def classify_bns_section(
                     result = bns_classification_service.classify_case(case_data)
             except Exception as e:
                 print(f"Could not load enhanced model: {e}")
-        
+
         # Log the classification
         audit_service.log_action(
             session=session,
@@ -87,7 +89,7 @@ async def classify_bns_section(
             },
             description=f"BNS classification: {result.get('bns_section')} (confidence: {result.get('confidence', 0):.3f}, mode: {result.get('model_mode')})"
         )
-        
+
         return {
             "case_id": request.case_id,
             "classification": result,
@@ -95,7 +97,7 @@ async def classify_bns_section(
             "classified_by": current_user.username,
             "enhanced_model": result.get("model_mode") != "fallback"
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Classification failed: {str(e)}")
 
@@ -111,7 +113,7 @@ async def classify_multiple_cases(
     try:
         cases_data = [case.dict() for case in request.cases]
         results = bns_classification_service.batch_classify(cases_data)
-        
+
         # Log batch classification
         audit_service.log_action(
             session=session,
@@ -124,14 +126,14 @@ async def classify_multiple_cases(
             },
             description=f"Batch BNS classification: {len(results)} cases processed"
         )
-        
+
         return {
             "total_cases": len(results),
             "classifications": results,
             "timestamp": datetime.now().isoformat(),
             "classified_by": current_user.username
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Batch classification failed: {str(e)}")
 
@@ -170,7 +172,7 @@ async def retrain_enhanced_model(
     """
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin access required for model retraining")
-    
+
     try:
         # This would trigger the training script
         # For now, return a placeholder response
@@ -182,7 +184,7 @@ async def retrain_enhanced_model(
             after_data={"trigger_time": datetime.now().isoformat()},
             description="Enhanced BNS model retraining triggered"
         )
-        
+
         return {
             "status": "initiated",
             "message": "Model retraining process initiated",
@@ -199,20 +201,20 @@ async def get_supported_bns_sections(current_user: User = Depends(get_current_us
     Get list of BNS sections supported by the model (Day 3)
     """
     status = bns_classification_service.get_model_status()
-    
+
     if not status.get("model_available"):
         # Return available sections even in fallback mode
         return {
             "supported_sections": [
-                "303(2)", "318(4)", "318(2)", "318(1)", "326", "326A", "331", "336", 
-                "309(4)", "316(2)", "354", "354D", "269", "85", "66", "66C", "79", 
+                "303(2)", "318(4)", "318(2)", "318(1)", "326", "326A", "331", "336",
+                "309(4)", "316(2)", "354", "354D", "269", "85", "66", "66C", "79",
                 "290", "106(1)", "103(1)", "370", "364A", "199", "295A", "25"
             ],
             "total_sections": 25,
             "model_accuracy": {"fallback_mode": True},
             "note": "Running in fallback/rule-based mode"
         }
-    
+
     return {
         "supported_sections": status.get("model_info", {}).get("bns_sections_supported", []),
         "total_sections": status.get("supported_sections", 0),
@@ -241,13 +243,13 @@ async def suggest_bns_sections(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Case synopsis must be at least 10 characters long"
         )
-    
+
     # Get suggestions using BNS Assist service
     suggestions = bns_assist.suggest_bns_sections(
         case_synopsis=case_synopsis,
         max_suggestions=max_suggestions
     )
-    
+
     # Log NLP suggestion request
     audit_service.log_action(
         session=session,
@@ -263,7 +265,7 @@ async def suggest_bns_sections(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
-    
+
     return {
         "synopsis": case_synopsis,
         "suggestions": [suggestion.to_dict() for suggestion in suggestions],
@@ -288,27 +290,27 @@ async def suggest_laws_for_case(
     # Get the case
     statement = select(Case).where(Case.id == case_id)
     case = session.exec(statement).first()
-    
+
     if not case:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Case not found"
         )
-    
+
     # Check access permissions
-    if (current_user.role == "clerk" and 
+    if (current_user.role == "clerk" and
         case.assigned_clerk_id != current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied to this case"
         )
-    
+
     # Get suggestions
     suggestions = bns_assist.suggest_bns_sections(
         case_synopsis=case.synopsis,
         max_suggestions=max_suggestions
     )
-    
+
     # Optionally update the case with suggestions
     if update_case and suggestions:
         suggested_laws_data = [suggestion.to_dict() for suggestion in suggestions]
@@ -316,7 +318,7 @@ async def suggest_laws_for_case(
         session.add(case)
         session.commit()
         session.refresh(case)
-    
+
     # Send email notification about BNS suggestions
     try:
         await email_service.send_bns_suggestions_notification(
@@ -328,7 +330,7 @@ async def suggest_laws_for_case(
     except Exception as e:
         # Log error but don't fail the request
         logger.warning(f"Failed to send BNS suggestions email: {str(e)}")
-    
+
     # Log the suggestion
     audit_service.log_action(
         session=session,
@@ -345,7 +347,7 @@ async def suggest_laws_for_case(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
-    
+
     return {
         "case_id": case_id,
         "case_number": case.case_number,
@@ -366,13 +368,13 @@ async def get_bns_section_details(
     Get details for a specific BNS section
     """
     section_details = bns_assist.get_section_details(section_number)
-    
+
     if not section_details:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"BNS section {section_number} not found"
         )
-    
+
     return section_details
 
 
@@ -389,7 +391,7 @@ async def search_bns_sections(
         keyword=keyword,
         max_results=max_results
     )
-    
+
     return {
         "keyword": keyword,
         "results": results,
@@ -405,7 +407,7 @@ async def get_nlp_statistics(
     Get statistics about the NLP/BNS database
     """
     stats = bns_assist.get_statistics()
-    
+
     return {
         "bns_database": stats,
         "model_info": {
@@ -473,20 +475,20 @@ async def submit_suggestion_feedback(
     # Verify case exists and user has access
     statement = select(Case).where(Case.id == case_id)
     case = session.exec(statement).first()
-    
+
     if not case:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Case not found"
         )
-    
-    if (current_user.role == "clerk" and 
+
+    if (current_user.role == "clerk" and
         case.assigned_clerk_id != current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied to this case"
         )
-    
+
     # Log feedback for future model training
     audit_service.log_action(
         session=session,
@@ -504,7 +506,7 @@ async def submit_suggestion_feedback(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
-    
+
     return {
         "message": "Feedback submitted successfully",
         "case_id": case_id,
@@ -526,28 +528,28 @@ async def export_case_suggestions(
     # Get the case
     statement = select(Case).where(Case.id == case_id)
     case = session.exec(statement).first()
-    
+
     if not case:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Case not found"
         )
-    
+
     # Check access permissions
-    if (current_user.role == "clerk" and 
+    if (current_user.role == "clerk" and
         case.assigned_clerk_id != current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied to this case"
         )
-    
+
     # Get current suggestions or generate new ones
     if case.suggested_laws:
         suggestions_data = json.loads(case.suggested_laws)
     else:
         suggestions = bns_assist.suggest_bns_sections(case.synopsis)
         suggestions_data = [s.to_dict() for s in suggestions]
-    
+
     return {
         "case_info": {
             "case_id": case_id,
@@ -581,9 +583,9 @@ async def get_dashboard_analytics(
         # Get all cases
         statement = select(Case)
         cases = session.exec(statement).all()
-        
+
         total_cases = len(cases)
-        
+
         if total_cases == 0:
             return {
                 "total_cases_analyzed": 0,
@@ -603,7 +605,7 @@ async def get_dashboard_analytics(
                 },
                 "recent_classifications": 0
             }
-        
+
         # Calculate priority distribution
         priority_counts = {
             "urgent": 0,
@@ -611,12 +613,12 @@ async def get_dashboard_analytics(
             "medium": 0,
             "low": 0
         }
-        
+
         for case in cases:
             priority = case.priority.lower() if case.priority else "medium"
             if priority in priority_counts:
                 priority_counts[priority] += 1
-        
+
         # Calculate case type distribution
         type_counts = {
             "criminal": 0,
@@ -624,20 +626,20 @@ async def get_dashboard_analytics(
             "family": 0,
             "commercial": 0
         }
-        
+
         for case in cases:
             case_type = case.case_type.lower() if case.case_type else "civil"
             if case_type in type_counts:
                 type_counts[case_type] += 1
-        
+
         # Mock accuracy (in production, calculate from actual predictions vs actuals)
         accuracy = 85.2
-        
+
         # Recent classifications (last 7 days)
         from datetime import datetime, timedelta
         seven_days_ago = datetime.now() - timedelta(days=7)
         recent_count = sum(1 for case in cases if case.created_at and case.created_at >= seven_days_ago)
-        
+
         return {
             "total_cases_analyzed": total_cases,
             "classification_accuracy": f"{accuracy}%",
@@ -648,7 +650,7 @@ async def get_dashboard_analytics(
             "bns_sections_identified": len(set(case.bns_section for case in cases if case.bns_section)),
             "avg_confidence": 0.85
         }
-        
+
     except Exception as e:
         logger.error(f"Error generating dashboard analytics: {e}")
         # Return default data instead of error

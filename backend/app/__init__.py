@@ -1,11 +1,11 @@
 """
 App package initialization
 """
-from . import models, core, services, routers
+from . import core, models, routers, services
 
 __all__ = [
     "models",
     "core",
-    "services", 
+    "services",
     "routers"
 ]

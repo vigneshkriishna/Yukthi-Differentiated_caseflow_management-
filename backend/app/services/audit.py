@@ -2,21 +2,23 @@
 Audit logging service for tracking all system mutations
 Records actor, action, before/after state for compliance and debugging
 """
-from typing import Optional, Dict, Any, List
-from datetime import datetime
 import json
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 from sqlmodel import Session, select
-from app.models.audit_log import AuditLog, AuditLogCreate, AuditAction
-from app.models.user import User
+
 from app.core.database import get_session
+from app.models.audit_log import AuditAction, AuditLog
+from app.models.user import User
 
 
 class AuditService:
     """Service for creating and managing audit logs"""
-    
+
     def __init__(self):
         self.session_factory = get_session
-    
+
     def log_action(
         self,
         session: Session,
@@ -33,7 +35,7 @@ class AuditService:
     ) -> AuditLog:
         """
         Log an auditable action
-        
+
         Args:
             session: Database session
             action: Type of action performed
@@ -46,14 +48,14 @@ class AuditService:
             case_id: Related case ID (if applicable)
             ip_address: User's IP address
             user_agent: User's browser/client info
-            
+
         Returns:
             Created AuditLog record
         """
         # Serialize data to JSON
         before_json = json.dumps(before_data, default=str) if before_data else None
         after_json = json.dumps(after_data, default=str) if after_data else None
-        
+
         # Create audit log entry
         audit_log = AuditLog(
             action=action,
@@ -68,13 +70,13 @@ class AuditService:
             user_agent=user_agent,
             created_at=datetime.utcnow()
         )
-        
+
         session.add(audit_log)
         session.commit()
         session.refresh(audit_log)
-        
+
         return audit_log
-    
+
     def log_case_creation(
         self,
         session: Session,
@@ -97,7 +99,7 @@ class AuditService:
             ip_address=ip_address,
             user_agent=user_agent
         )
-    
+
     def log_case_update(
         self,
         session: Session,
@@ -116,9 +118,9 @@ class AuditService:
             after_val = after_data.get(key)
             if before_val != after_val:
                 changes.append(f"{key}: {before_val} → {after_val}")
-        
+
         description = f"Case updated: {', '.join(changes)}" if changes else "Case updated"
-        
+
         return self.log_action(
             session=session,
             action=AuditAction.UPDATE,
@@ -132,7 +134,7 @@ class AuditService:
             ip_address=ip_address,
             user_agent=user_agent
         )
-    
+
     def log_case_classification(
         self,
         session: Session,
@@ -155,7 +157,7 @@ class AuditService:
             ip_address=ip_address,
             user_agent=user_agent
         )
-    
+
     def log_track_override(
         self,
         session: Session,
@@ -181,7 +183,7 @@ class AuditService:
             ip_address=ip_address,
             user_agent=user_agent
         )
-    
+
     def log_hearing_scheduled(
         self,
         session: Session,
@@ -205,7 +207,7 @@ class AuditService:
             ip_address=ip_address,
             user_agent=user_agent
         )
-    
+
     def log_user_login(
         self,
         session: Session,
@@ -224,7 +226,7 @@ class AuditService:
             ip_address=ip_address,
             user_agent=user_agent
         )
-    
+
     def log_user_logout(
         self,
         session: Session,
@@ -243,7 +245,7 @@ class AuditService:
             ip_address=ip_address,
             user_agent=user_agent
         )
-    
+
     def log_report_generation(
         self,
         session: Session,
@@ -264,7 +266,7 @@ class AuditService:
             ip_address=ip_address,
             user_agent=user_agent
         )
-    
+
     def get_audit_trail(
         self,
         session: Session,
@@ -279,7 +281,7 @@ class AuditService:
     ) -> List[AuditLog]:
         """
         Get audit trail with filtering options
-        
+
         Args:
             session: Database session
             resource_type: Filter by resource type
@@ -290,12 +292,12 @@ class AuditService:
             start_date: Filter by start date
             end_date: Filter by end date
             limit: Maximum number of records to return
-            
+
         Returns:
             List of AuditLog records
         """
         statement = select(AuditLog)
-        
+
         # Apply filters
         if resource_type:
             statement = statement.where(AuditLog.resource_type == resource_type)
@@ -311,12 +313,12 @@ class AuditService:
             statement = statement.where(AuditLog.created_at >= start_date)
         if end_date:
             statement = statement.where(AuditLog.created_at <= end_date)
-        
+
         # Order by most recent first and limit
         statement = statement.order_by(AuditLog.created_at.desc()).limit(limit)
-        
+
         return list(session.exec(statement).all())
-    
+
     def get_case_audit_summary(
         self,
         session: Session,
@@ -324,30 +326,30 @@ class AuditService:
     ) -> Dict[str, Any]:
         """
         Get audit summary for a specific case
-        
+
         Args:
             session: Database session
             case_id: Case ID to get summary for
-            
+
         Returns:
             Summary of audit activities for the case
         """
         statement = select(AuditLog).where(AuditLog.case_id == case_id)
         audit_logs = list(session.exec(statement).all())
-        
+
         # Group by action type
         action_counts = {}
         first_action = None
         last_action = None
-        
+
         for log in audit_logs:
             action_counts[log.action.value] = action_counts.get(log.action.value, 0) + 1
-            
+
             if first_action is None or log.created_at < first_action.created_at:
                 first_action = log
             if last_action is None or log.created_at > last_action.created_at:
                 last_action = log
-        
+
         return {
             "case_id": case_id,
             "total_audit_entries": len(audit_logs),

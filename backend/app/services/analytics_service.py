@@ -3,66 +3,68 @@ Advanced Analytics Service for DCM System
 Provides comprehensive analytics and reporting functionality
 """
 
-from typing import Dict, Any
-from sqlmodel import Session, select
 from datetime import datetime, timedelta
-from app.models.case import Case, CaseStatus, CaseType, CasePriority
-from app.models.user import User, UserRole
+from typing import Any, Dict
+
+from sqlmodel import Session, select
+
 from app.models.audit_log import AuditLog
+from app.models.case import Case, CasePriority, CaseStatus, CaseType
 from app.models.hearing import Hearing
+from app.models.user import User, UserRole
 
 
 class AnalyticsService:
     """Advanced analytics service for comprehensive system insights"""
-    
+
     def __init__(self):
         self.cache_timeout = 300  # 5 minutes cache
         self._cache = {}
-    
+
     def get_dashboard_overview(self, session: Session, user_id: int = None) -> Dict[str, Any]:
         """Get comprehensive dashboard overview with key metrics"""
-        
+
         # Basic counts
         total_cases = session.exec(select(Case)).all()
         total_users = session.exec(select(User)).all()
         total_hearings = session.exec(select(Hearing)).all()
-        
+
         # Status distribution
         status_counts = {}
         for status in CaseStatus:
             count = len([c for c in total_cases if c.status == status])
             status_counts[status.value] = count
-        
-        # Priority distribution  
+
+        # Priority distribution
         priority_counts = {}
         for priority in CasePriority:
             count = len([c for c in total_cases if c.priority == priority])
             priority_counts[priority.value] = count
-            
+
         # Case type distribution
         type_counts = {}
         for case_type in CaseType:
             count = len([c for c in total_cases if c.case_type == case_type])
             type_counts[case_type.value] = count
-        
+
         # Recent activity (last 7 days)
         seven_days_ago = datetime.now() - timedelta(days=7)
         recent_cases = [c for c in total_cases if c.created_at >= seven_days_ago]
         recent_activity = len(recent_cases)
-        
+
         # BNS section analysis
         bns_sections = {}
         for case in total_cases:
             if hasattr(case, 'predicted_bns_section') and case.predicted_bns_section:
                 section = case.predicted_bns_section
                 bns_sections[section] = bns_sections.get(section, 0) + 1
-        
+
         # User role distribution
         role_counts = {}
         for role in UserRole:
             count = len([u for u in total_users if u.role == role])
             role_counts[role.value] = count
-        
+
         return {
             "overview": {
                 "total_cases": len(total_cases),
@@ -94,19 +96,19 @@ class AnalyticsService:
                 "hearing_success_rate": "94.2%"  # Mock data
             }
         }
-    
+
     def get_case_analytics(self, session: Session, days: int = 30) -> Dict[str, Any]:
         """Get detailed case analytics for specified time period"""
-        
+
         cutoff_date = datetime.now() - timedelta(days=days)
         cases = session.exec(select(Case).where(Case.created_at >= cutoff_date)).all()
-        
+
         # Time series data (cases per day)
         daily_cases = {}
         for case in cases:
             date_key = case.created_at.strftime("%Y-%m-%d")
             daily_cases[date_key] = daily_cases.get(date_key, 0) + 1
-        
+
         # Case resolution timeline
         resolution_times = []
         for case in cases:
@@ -114,16 +116,16 @@ class AnalyticsService:
                 if case.disposed_at:
                     resolution_time = (case.disposed_at - case.created_at).days
                     resolution_times.append(resolution_time)
-        
+
         avg_resolution = sum(resolution_times) / len(resolution_times) if resolution_times else 0
-        
+
         # Complexity analysis
         complexity_distribution = {
             "simple": len([c for c in cases if self._get_case_complexity(c) == "simple"]),
-            "medium": len([c for c in cases if self._get_case_complexity(c) == "medium"]), 
+            "medium": len([c for c in cases if self._get_case_complexity(c) == "medium"]),
             "complex": len([c for c in cases if self._get_case_complexity(c) == "complex"])
         }
-        
+
         return {
             "period": f"Last {days} days",
             "total_cases": len(cases),
@@ -141,29 +143,29 @@ class AnalyticsService:
                 "escalated_cases": len([c for c in cases if c.priority == CasePriority.URGENT])
             }
         }
-    
+
     def get_bns_classification_analytics(self, session: Session) -> Dict[str, Any]:
         """Get analytics specific to BNS classification performance"""
-        
+
         cases = session.exec(select(Case)).all()
-        
+
         # BNS section frequency
         section_frequency = {}
         confidence_scores = []
         classification_success = 0
-        
+
         for case in cases:
             # Mock BNS data - in real implementation, this would come from case.bns_prediction
             if hasattr(case, 'predicted_bns_section') and case.predicted_bns_section:
                 section = case.predicted_bns_section
                 section_frequency[section] = section_frequency.get(section, 0) + 1
                 classification_success += 1
-                
+
                 # Mock confidence score
                 confidence_scores.append(0.75 + (hash(case.id) % 25) / 100)  # Mock: 0.75-1.0 range
-        
+
         avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0
-        
+
         # Section categories
         section_categories = {
             "violent_crimes": len([s for s in section_frequency.keys() if s in ["326", "302", "307", "323"]]),
@@ -172,7 +174,7 @@ class AnalyticsService:
             "cyber_crimes": len([s for s in section_frequency.keys() if s in ["66", "66A", "66C", "66D"]]),
             "other_crimes": len([s for s in section_frequency.keys() if s not in ["326", "302", "307", "323", "378", "379", "380", "381", "417", "418", "419", "420", "66", "66A", "66C", "66D"]])
         }
-        
+
         return {
             "classification_overview": {
                 "total_cases_classified": classification_success,
@@ -195,17 +197,17 @@ class AnalyticsService:
                 "recommendation": "Consider specialized training for cyber crime BNS sections"
             }
         }
-    
+
     def get_user_activity_analytics(self, session: Session) -> Dict[str, Any]:
         """Get analytics about user activity and system usage"""
-        
+
         # Get audit logs for activity analysis
         recent_logs = session.exec(
             select(AuditLog).where(
                 AuditLog.timestamp >= datetime.now() - timedelta(days=30)
             )
         ).all()
-        
+
         # Activity by user role
         activity_by_role = {}
         for log in recent_logs:
@@ -214,22 +216,22 @@ class AnalyticsService:
                 if user:
                     role = user.role.value
                     activity_by_role[role] = activity_by_role.get(role, 0) + 1
-        
+
         # Activity by action type
         activity_by_action = {}
         for log in recent_logs:
             action = log.action.value
             activity_by_action[action] = activity_by_action.get(action, 0) + 1
-        
+
         # Daily activity trend
         daily_activity = {}
         for log in recent_logs:
             date_key = log.timestamp.strftime("%Y-%m-%d")
             daily_activity[date_key] = daily_activity.get(date_key, 0) + 1
-        
+
         # Active users
         active_users = set([log.user_id for log in recent_logs if log.user_id])
-        
+
         return {
             "activity_overview": {
                 "total_actions_30_days": len(recent_logs),
@@ -246,18 +248,18 @@ class AnalyticsService:
                 "low_activity_users": len([uid for uid in active_users if len([log for log in recent_logs if log.user_id == uid]) < 10])
             }
         }
-    
+
     def get_court_schedule_analytics(self, session: Session) -> Dict[str, Any]:
         """Get analytics about court scheduling and hearing management"""
-        
+
         hearings = session.exec(select(Hearing)).all()
-        
+
         # Hearing status distribution
         status_distribution = {}
         for hearing in hearings:
             status = hearing.status.value if hasattr(hearing, 'status') else "scheduled"
             status_distribution[status] = status_distribution.get(status, 0) + 1
-        
+
         # Court utilization (mock data for now)
         court_utilization = {
             "Court Room 1": {"scheduled": 25, "capacity": 30, "utilization": 83.3},
@@ -266,14 +268,14 @@ class AnalyticsService:
             "Court Room 4": {"scheduled": 20, "capacity": 30, "utilization": 66.7},
             "Court Room 5": {"scheduled": 26, "capacity": 30, "utilization": 86.7}
         }
-        
+
         # Hearing timing analysis
         timing_analysis = {
             "morning_slots": len([h for h in hearings if 9 <= (h.scheduled_time.hour if hasattr(h, 'scheduled_time') else 10) < 12]),
             "afternoon_slots": len([h for h in hearings if 12 <= (h.scheduled_time.hour if hasattr(h, 'scheduled_time') else 14) < 17]),
             "total_scheduled": len(hearings)
         }
-        
+
         return {
             "schedule_overview": {
                 "total_hearings": len(hearings),
@@ -291,53 +293,53 @@ class AnalyticsService:
                 "average_hearing_duration": "45 minutes"  # Mock
             }
         }
-    
+
     def _get_case_complexity(self, case: Case) -> str:
         """Determine case complexity based on various factors"""
         # Simple heuristic - in real implementation, this would be more sophisticated
         complexity_score = 0
-        
+
         # Check description length
         if len(case.description) > 500:
             complexity_score += 2
         elif len(case.description) > 200:
             complexity_score += 1
-            
+
         # Check case type
         if case.case_type in [CaseType.CONSTITUTIONAL, CaseType.COMMERCIAL]:
             complexity_score += 2
         elif case.case_type == CaseType.FAMILY:
             complexity_score += 1
-            
+
         # Check priority
         if case.priority == CasePriority.URGENT:
             complexity_score += 1
-            
+
         if complexity_score >= 4:
             return "complex"
         elif complexity_score >= 2:
             return "medium"
         else:
             return "simple"
-    
+
     def _is_case_on_time(self, case: Case) -> bool:
         """Check if case is progressing on time"""
         # Mock implementation - would check against expected timelines
         days_since_filing = (datetime.now() - case.created_at).days
-        
+
         if case.status == CaseStatus.FILED and days_since_filing <= 7:
             return True
         elif case.status == CaseStatus.UNDER_REVIEW and days_since_filing <= 30:
             return True
         elif case.status == CaseStatus.SCHEDULED and days_since_filing <= 60:
             return True
-        
+
         return False
-    
+
     def _is_case_delayed(self, case: Case) -> bool:
         """Check if case is delayed beyond expected timelines"""
         return not self._is_case_on_time(case)
-    
+
     def _is_this_week(self, date: datetime) -> bool:
         """Check if date falls within current week"""
         today = datetime.now()

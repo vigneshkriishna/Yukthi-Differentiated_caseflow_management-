@@ -3,10 +3,10 @@ NLP Service for BNS (Bharatiya Nyaya Sanhita) Section Suggestion
 Phase 1: Rule/keyword-based IPC→BNS mapping stub
 Phase 2+: TF-IDF + Linear SVM baseline
 """
-from typing import List, Dict, Any, Optional
-import re
 import json
+import re
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 class BNSSuggestion:
@@ -24,7 +24,7 @@ class BNSSuggestion:
         self.description = description
         self.confidence = confidence
         self.keywords_matched = keywords_matched
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "section_number": self.section_number,
@@ -37,11 +37,11 @@ class BNSSuggestion:
 
 class BNSAssistService:
     """BNS Assist Service for legal section suggestions"""
-    
+
     def __init__(self):
         self.bns_mapping = self._load_bns_mapping()
         self.keyword_patterns = self._compile_keyword_patterns()
-    
+
     def _load_bns_mapping(self) -> Dict[str, Any]:
         """Load BNS section mapping data"""
         # In Phase 1, we'll use a hardcoded mapping
@@ -128,7 +128,7 @@ class BNSAssistService:
                 }
             }
         }
-    
+
     def _compile_keyword_patterns(self) -> Dict[str, List[str]]:
         """Compile keyword patterns for efficient matching"""
         patterns = {}
@@ -140,7 +140,7 @@ class BNSAssistService:
                 for keyword in keywords
             ]
         return patterns
-    
+
     def suggest_bns_sections(
         self,
         case_synopsis: str,
@@ -148,24 +148,24 @@ class BNSAssistService:
     ) -> List[BNSSuggestion]:
         """
         Suggest BNS sections based on case synopsis
-        
+
         Args:
             case_synopsis: Text description of the case
             max_suggestions: Maximum number of suggestions to return
-            
+
         Returns:
             List of BNSSuggestion objects
         """
         suggestions = []
         synopsis_lower = case_synopsis.lower()
-        
+
         # Score each section based on keyword matches
         for section_num, patterns in self.keyword_patterns.items():
             section_data = self.bns_mapping["sections"][section_num]
-            
+
             matched_keywords = []
             total_matches = 0
-            
+
             # Count matches for each keyword
             for i, pattern in enumerate(patterns):
                 matches = pattern.findall(case_synopsis)
@@ -173,20 +173,20 @@ class BNSAssistService:
                     keyword = section_data["keywords"][i]
                     matched_keywords.append(keyword)
                     total_matches += len(matches)
-            
+
             # Calculate confidence score
             if matched_keywords:
                 # Base confidence on number of unique keywords matched
                 unique_keyword_score = len(matched_keywords) / len(section_data["keywords"])
-                
+
                 # Boost score based on total matches (repeated keywords)
                 frequency_boost = min(total_matches / 10, 0.5)  # Cap at 0.5
-                
+
                 # Length penalty for very short synopsis
                 length_penalty = 0 if len(case_synopsis) < 50 else 0.1
-                
+
                 confidence = min(0.95, unique_keyword_score + frequency_boost + length_penalty)
-                
+
                 suggestion = BNSSuggestion(
                     section_number=section_num,
                     section_title=section_data["title"],
@@ -194,22 +194,22 @@ class BNSAssistService:
                     confidence=round(confidence, 2),
                     keywords_matched=matched_keywords
                 )
-                
+
                 suggestions.append(suggestion)
-        
+
         # Sort by confidence score (highest first)
         suggestions.sort(key=lambda x: x.confidence, reverse=True)
-        
+
         # Return top suggestions
         return suggestions[:max_suggestions]
-    
+
     def get_section_details(self, section_number: str) -> Optional[Dict[str, Any]]:
         """
         Get details for a specific BNS section
-        
+
         Args:
             section_number: BNS section number
-            
+
         Returns:
             Section details or None if not found
         """
@@ -223,7 +223,7 @@ class BNSAssistService:
                 "ipc_equivalent": section_data.get("ipc_equivalent")
             }
         return None
-    
+
     def search_sections_by_keyword(
         self,
         keyword: str,
@@ -231,23 +231,23 @@ class BNSAssistService:
     ) -> List[Dict[str, Any]]:
         """
         Search BNS sections by keyword
-        
+
         Args:
             keyword: Keyword to search for
             max_results: Maximum number of results
-            
+
         Returns:
             List of matching sections
         """
         results = []
         keyword_lower = keyword.lower()
-        
+
         for section_num, section_data in self.bns_mapping["sections"].items():
             # Check if keyword appears in title, description, or keywords
             title_match = keyword_lower in section_data["title"].lower()
             desc_match = keyword_lower in section_data["description"].lower()
             keyword_match = any(keyword_lower in kw.lower() for kw in section_data["keywords"])
-            
+
             if title_match or desc_match or keyword_match:
                 results.append({
                     "section_number": section_num,
@@ -259,20 +259,20 @@ class BNSAssistService:
                         0.5 if desc_match else 0
                     )
                 })
-        
+
         # Sort by relevance score
         results.sort(key=lambda x: x["relevance_score"], reverse=True)
-        
+
         return results[:max_results]
-    
+
     def get_statistics(self) -> Dict[str, Any]:
         """Get statistics about the BNS mapping database"""
         sections = self.bns_mapping["sections"]
-        
+
         total_sections = len(sections)
         total_keywords = sum(len(data["keywords"]) for data in sections.values())
         avg_keywords_per_section = total_keywords / total_sections if total_sections > 0 else 0
-        
+
         # Group by crime category (simplified)
         crime_categories = {
             "violent": ["murder", "hurt", "rape", "assault", "robbery"],
@@ -280,16 +280,16 @@ class BNSAssistService:
             "personal": ["defamation", "kidnapping"],
             "financial": ["breach of trust", "embezzlement"]
         }
-        
+
         category_counts = {}
         for category, category_keywords in crime_categories.items():
             count = 0
             for section_data in sections.values():
-                if any(ck in " ".join(section_data["keywords"]).lower() 
+                if any(ck in " ".join(section_data["keywords"]).lower()
                       for ck in category_keywords):
                     count += 1
             category_counts[category] = count
-        
+
         return {
             "total_sections": total_sections,
             "total_keywords": total_keywords,

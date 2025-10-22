@@ -6,7 +6,7 @@ This creates a realistic training dataset for BNS section prediction
 BNS_TRAINING_DATA = [
     # VIOLENT CRIMES
     {
-        "section": "103", "title": "Murder", 
+        "section": "103", "title": "Murder",
         "description": "Whoever commits murder shall be punished with death, or imprisonment for life, and shall also be liable to fine.",
         "examples": [
             "The accused intentionally killed the victim by stabbing with a knife during a fight",

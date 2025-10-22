@@ -2,16 +2,16 @@
 Global Exception Handler for FastAPI Application
 Provides consistent error responses and proper error handling
 """
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from pydantic import ValidationError
 import logging
-from typing import Union, Dict, Any
 import traceback
+from typing import Any, Dict, Union
 
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -74,27 +74,27 @@ def create_error_response(
         "message": message,
         "timestamp": "2024-01-01T00:00:00Z"  # Would use datetime.utcnow().isoformat() + "Z"
     }
-    
+
     if error_code:
         error_response["error_code"] = error_code
-    
+
     if details:
         error_response["details"] = details
-    
+
     if path:
         error_response["path"] = path
-    
+
     return error_response
 
 
 def setup_exception_handlers(app: FastAPI):
     """Setup global exception handlers for FastAPI app"""
-    
+
     @app.exception_handler(APIError)
     async def api_error_handler(request: Request, exc: APIError):
         """Handle custom API errors"""
         logger.warning(f"API Error: {exc.message} - Path: {request.url.path}")
-        
+
         return JSONResponse(
             status_code=exc.status_code,
             content=create_error_response(
@@ -104,12 +104,12 @@ def setup_exception_handlers(app: FastAPI):
                 path=str(request.url.path)
             )
         )
-    
+
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError):
         """Handle Pydantic validation errors"""
         logger.warning(f"Validation Error: {exc.errors()} - Path: {request.url.path}")
-        
+
         # Format validation errors consistently
         validation_details = []
         for error in exc.errors():
@@ -119,7 +119,7 @@ def setup_exception_handlers(app: FastAPI):
                 "type": error["type"],
                 "input": error.get("input")
             })
-        
+
         return JSONResponse(
             status_code=422,
             content=create_error_response(
@@ -130,12 +130,12 @@ def setup_exception_handlers(app: FastAPI):
                 path=str(request.url.path)
             )
         )
-    
+
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         """Handle HTTP exceptions"""
         logger.warning(f"HTTP Exception: {exc.status_code} - {exc.detail} - Path: {request.url.path}")
-        
+
         # Map status codes to user-friendly messages
         message_map = {
             401: "Authentication required",
@@ -147,10 +147,10 @@ def setup_exception_handlers(app: FastAPI):
             502: "Bad gateway",
             503: "Service unavailable"
         }
-        
+
         message = message_map.get(exc.status_code, exc.detail)
         error_code = f"HTTP_{exc.status_code}"
-        
+
         return JSONResponse(
             status_code=exc.status_code,
             content=create_error_response(
@@ -160,15 +160,15 @@ def setup_exception_handlers(app: FastAPI):
                 path=str(request.url.path)
             )
         )
-    
+
     @app.exception_handler(IntegrityError)
     async def integrity_error_handler(request: Request, exc: IntegrityError):
         """Handle database integrity constraint violations"""
         logger.error(f"Database Integrity Error: {str(exc)} - Path: {request.url.path}")
-        
+
         # Parse common integrity errors
         error_message = str(exc.orig) if hasattr(exc, 'orig') else str(exc)
-        
+
         if "UNIQUE constraint failed" in error_message:
             message = "Resource already exists with this identifier"
             error_code = "DUPLICATE_RESOURCE"
@@ -185,7 +185,7 @@ def setup_exception_handlers(app: FastAPI):
             message = "Database constraint violation"
             error_code = "DATABASE_CONSTRAINT_ERROR"
             status_code = 400
-        
+
         return JSONResponse(
             status_code=status_code,
             content=create_error_response(
@@ -195,12 +195,12 @@ def setup_exception_handlers(app: FastAPI):
                 path=str(request.url.path)
             )
         )
-    
+
     @app.exception_handler(SQLAlchemyError)
     async def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError):
         """Handle general SQLAlchemy database errors"""
         logger.error(f"Database Error: {str(exc)} - Path: {request.url.path}")
-        
+
         return JSONResponse(
             status_code=500,
             content=create_error_response(
@@ -210,12 +210,12 @@ def setup_exception_handlers(app: FastAPI):
                 path=str(request.url.path)
             )
         )
-    
+
     @app.exception_handler(ValidationError)
     async def pydantic_validation_error_handler(request: Request, exc: ValidationError):
         """Handle Pydantic model validation errors"""
         logger.warning(f"Pydantic Validation Error: {exc.errors()} - Path: {request.url.path}")
-        
+
         validation_details = []
         for error in exc.errors():
             validation_details.append({
@@ -223,7 +223,7 @@ def setup_exception_handlers(app: FastAPI):
                 "message": error["msg"],
                 "type": error["type"]
             })
-        
+
         return JSONResponse(
             status_code=422,
             content=create_error_response(
@@ -234,13 +234,13 @@ def setup_exception_handlers(app: FastAPI):
                 path=str(request.url.path)
             )
         )
-    
+
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Request, exc: Exception):
         """Handle unexpected exceptions"""
         logger.error(f"Unexpected Error: {str(exc)} - Path: {request.url.path}")
         logger.error(f"Traceback: {traceback.format_exc()}")
-        
+
         # Don't expose internal error details in production
         return JSONResponse(
             status_code=500,
@@ -307,26 +307,26 @@ def sanitize_string_input(value: str) -> str:
     """Basic string sanitization"""
     if not value:
         return value
-    
+
     # Remove potential XSS characters
     dangerous_chars = ['<', '>', '"', "'", '&']
     for char in dangerous_chars:
         value = value.replace(char, '')
-    
+
     # Limit length to prevent DoS
     if len(value) > 10000:
         value = value[:10000]
-    
+
     return value.strip()
 
 
 def validate_file_upload(file_size: int, allowed_extensions: list, file_extension: str):
     """Validate file upload parameters"""
     max_size = 10 * 1024 * 1024  # 10MB
-    
+
     if file_size > max_size:
         raise_business_error(f"File size too large. Maximum allowed: {max_size} bytes")
-    
+
     if file_extension.lower() not in allowed_extensions:
         raise_business_error(f"File type not allowed. Allowed types: {', '.join(allowed_extensions)}")
 
@@ -343,10 +343,10 @@ def check_rate_limit(user_id: str, endpoint: str, limit: int = 100, window: int 
 async def log_requests(request: Request, call_next):
     """Log all requests for monitoring"""
     logger.info(f"Request: {request.method} {request.url.path}")
-    
+
     response = await call_next(request)
-    
+
     process_time = 0.1  # Would calculate actual time
     logger.info(f"Response: {response.status_code} - Time: {process_time:.4f}s")
-    
+
     return response

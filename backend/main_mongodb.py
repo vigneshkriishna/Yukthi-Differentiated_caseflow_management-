@@ -5,27 +5,25 @@ Secure, production-ready Digital Case Management System with AI Features
 """
 
 import base64
-from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import FileResponse, Response
-from pydantic import BaseModel, Field
-from beanie import Document, init_beanie
-from motor.motor_asyncio import AsyncIOMotorClient
-from passlib.context import CryptContext
-from jose import jwt, JWTError
+import logging
+import uuid
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Optional, List
-import asyncio
-import logging
-import os
-import uuid
-import shutil
 from pathlib import Path
+from typing import Optional
+
+from beanie import Document, init_beanie
 
 # Import our configuration
 from config import config
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
+from motor.motor_asyncio import AsyncIOMotorClient
+from passlib.context import CryptContext
+from pydantic import BaseModel, Field
 
 # Import AI service
 try:
@@ -61,7 +59,7 @@ class UserRole(str, Enum):
 # Case status
 class CaseStatus(str, Enum):
     PENDING = "pending"
-    IN_PROGRESS = "in_progress" 
+    IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     DISMISSED = "dismissed"
     FILED = "FILED"  # Added for compatibility with generated dataset
@@ -80,7 +78,7 @@ class User(Document):
     role: UserRole
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
     class Settings:
         name = "users"
 
@@ -96,7 +94,7 @@ class Case(Document):
     created_by: Optional[str] = None  # Made optional for backward compatibility
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
     class Settings:
         name = "cases"
 
@@ -108,7 +106,7 @@ class Hearing(Document):
     status: str = "scheduled"
     notes: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
     class Settings:
         name = "hearings"
 
@@ -125,7 +123,7 @@ class CaseDocument(Document):
     description: Optional[str] = Field(default=None)
     document_type: str = Field(default="general")  # general, evidence, pleading, order, etc.
     is_public: bool = Field(default=False)  # Public access flag
-    
+
     class Settings:
         name = "documents"
 
@@ -219,7 +217,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials"
         )
-    
+
     user = await User.find_one(User.username == username)
     if user is None:
         raise HTTPException(
@@ -232,25 +230,25 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 async def connect_to_mongo():
     """Create database connection"""
     global mongodb_client
-    
+
     try:
         mongodb_client = AsyncIOMotorClient(config.MONGODB_URL)
-        
+
         # Test connection
         await mongodb_client.admin.command('ping')
-        
+
         # Initialize Beanie
         await init_beanie(
             database=mongodb_client[config.DATABASE_NAME],
             document_models=[User, Case, Hearing, CaseDocument]
         )
-        
+
         logger.info("✅ Connected to MongoDB Atlas!")
         logger.info(f"📊 Database: {config.DATABASE_NAME}")
-        
+
         # Create demo data
         await create_demo_data()
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to connect to MongoDB: {e}")
         logger.error("🔧 Please check:")
@@ -264,7 +262,7 @@ async def create_demo_data():
     try:
         # Check if admin user already exists
         admin_exists = await User.find_one(User.username == "admin")
-        
+
         if not admin_exists:
             # Create demo users
             demo_users = [
@@ -273,7 +271,7 @@ async def create_demo_data():
                 {"username": "clerk1", "email": "clerk1@dcm.com", "full_name": "Mary Clerk", "password": "demo123", "role": UserRole.CLERK},
                 {"username": "lawyer1", "email": "lawyer1@dcm.com", "full_name": "John Lawyer", "password": "demo123", "role": UserRole.LAWYER},
             ]
-            
+
             for user_data in demo_users:
                 user = User(
                     username=user_data["username"],
@@ -283,9 +281,9 @@ async def create_demo_data():
                     role=user_data["role"]
                 )
                 await user.insert()
-            
+
             logger.info("👥 Created demo users!")
-            
+
             # Create demo cases
             demo_cases = [
                 {
@@ -299,7 +297,7 @@ async def create_demo_data():
                     "created_by": "clerk1"
                 },
                 {
-                    "case_number": "DCM-2024-002", 
+                    "case_number": "DCM-2024-002",
                     "title": "State vs. Brown",
                     "description": "Traffic violation case",
                     "case_type": "Criminal",
@@ -309,15 +307,15 @@ async def create_demo_data():
                     "created_by": "clerk1"
                 }
             ]
-            
+
             for case_data in demo_cases:
                 case = Case(**case_data)
                 await case.insert()
-                
+
             logger.info("📁 Created demo cases!")
         else:
             logger.info("ℹ️  Demo data already exists")
-            
+
     except Exception as e:
         logger.error(f"❌ Error creating demo data: {e}")
 
@@ -348,7 +346,7 @@ async def root():
         "version": "3.0.0",
         "features": [
             "User Authentication",
-            "Case Management", 
+            "Case Management",
             "Document Upload",
             "AI Case Classification",
             "Document Analysis",
@@ -357,7 +355,7 @@ async def root():
             "Smart Analytics"
         ] if AI_ENABLED else [
             "User Authentication",
-            "Case Management", 
+            "Case Management",
             "Document Upload"
         ]
     }
@@ -368,7 +366,7 @@ async def health_check():
         # Test database connection
         user_count = await User.count()
         case_count = await Case.count()
-        
+
         return {
             "status": "healthy",
             "database": "connected",
@@ -388,14 +386,14 @@ async def register(user_data: UserCreate):
             status_code=400,
             detail="Username already registered"
         )
-    
+
     existing_email = await User.find_one(User.email == user_data.email)
     if existing_email:
         raise HTTPException(
             status_code=400,
             detail="Email already registered"
         )
-    
+
     # Create new user
     user = User(
         username=user_data.username,
@@ -404,9 +402,9 @@ async def register(user_data: UserCreate):
         hashed_password=hash_password(user_data.password),
         role=user_data.role
     )
-    
+
     await user.insert()
-    
+
     return UserResponse(
         id=str(user.id),
         username=user.username,
@@ -421,22 +419,22 @@ async def register(user_data: UserCreate):
 async def login(user_credentials: UserLogin):
     # Find user
     user = await User.find_one(User.username == user_credentials.username)
-    
+
     if not user or not verify_password(user_credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password"
         )
-    
+
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User account is disabled"
         )
-    
+
     # Create access token
     access_token = create_access_token(data={"sub": user.username})
-    
+
     user_response = UserResponse(
         id=str(user.id),
         username=user.username,
@@ -446,7 +444,7 @@ async def login(user_credentials: UserLogin):
         is_active=user.is_active,
         created_at=user.created_at
     )
-    
+
     return Token(
         access_token=access_token,
         token_type="bearer",
@@ -491,7 +489,7 @@ async def create_case(case_data: CaseCreate, current_user: User = Depends(get_cu
     # Generate case number
     case_count = await Case.count() + 1
     case_number = f"DCM-2024-{case_count:03d}"
-    
+
     case = Case(
         case_number=case_number,
         title=case_data.title,
@@ -501,9 +499,9 @@ async def create_case(case_data: CaseCreate, current_user: User = Depends(get_cu
         priority=case_data.priority,
         created_by=current_user.username
     )
-    
+
     await case.insert()
-    
+
     return {
         "id": str(case.id),
         "case_number": case.case_number,
@@ -520,7 +518,7 @@ async def get_users(current_user: User = Depends(get_current_user)):
             status_code=403,
             detail="Admin access required"
         )
-    
+
     users = await User.find().to_list()
     return [
         UserResponse(
@@ -541,13 +539,13 @@ async def create_user(
     current_user: User = Depends(get_current_user)
 ):
     """Create a new user (Admin only)"""
-    
+
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=403,
             detail="Admin access required"
         )
-    
+
     # Check if username already exists
     existing_user = await User.find_one(User.username == user_data.username)
     if existing_user:
@@ -555,7 +553,7 @@ async def create_user(
             status_code=400,
             detail="Username already exists"
         )
-    
+
     # Check if email already exists
     existing_email = await User.find_one(User.email == user_data.email)
     if existing_email:
@@ -563,10 +561,10 @@ async def create_user(
             status_code=400,
             detail="Email already exists"
         )
-    
+
     # Hash the password using passlib
     hashed_password = pwd_context.hash(user_data.password)
-    
+
     # Create new user
     new_user = User(
         username=user_data.username,
@@ -577,9 +575,9 @@ async def create_user(
         is_active=True,
         created_at=datetime.utcnow()
     )
-    
+
     await new_user.insert()
-    
+
     return UserResponse(
         id=str(new_user.id),
         username=new_user.username,
@@ -600,7 +598,7 @@ async def upload_document(
     current_user: User = Depends(get_current_user)
 ):
     """Upload a document (PDF, DOC, DOCX, TXT, etc.)"""
-    
+
     # Check if user has upload permission
     upload_roles = [UserRole.ADMIN, UserRole.CLERK, UserRole.LAWYER]
     if current_user.role not in upload_roles:
@@ -608,24 +606,24 @@ async def upload_document(
             status_code=403,
             detail=f"Document upload not allowed for role {current_user.role}. Required roles: {', '.join([role.value for role in upload_roles])}"
         )
-    
+
     # Validate file type
     allowed_types = {
-        "application/pdf", 
-        "application/msword", 
+        "application/pdf",
+        "application/msword",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "text/plain",
         "image/jpeg",
         "image/png",
         "image/gif"
     }
-    
+
     if file.content_type not in allowed_types:
         raise HTTPException(
             status_code=400,
             detail=f"File type {file.content_type} not allowed. Allowed types: PDF, DOC, DOCX, TXT, JPG, PNG, GIF"
         )
-    
+
     # Validate file size (max 10MB)
     file_content = await file.read()
     if len(file_content) > 10 * 1024 * 1024:  # 10MB
@@ -633,14 +631,14 @@ async def upload_document(
             status_code=400,
             detail="File size must be less than 10MB"
         )
-    
+
     # Encode file content to base64 for MongoDB storage
     file_content_base64 = base64.b64encode(file_content).decode('utf-8')
-    
+
     # Generate unique filename
     file_extension = Path(file.filename).suffix
     unique_filename = f"{uuid.uuid4()}{file_extension}"
-    
+
     # Create document record with file content stored in MongoDB
     document = CaseDocument(
         filename=unique_filename,
@@ -653,9 +651,9 @@ async def upload_document(
         description=description,
         document_type=document_type
     )
-    
+
     await document.insert()
-    
+
     return {
         "id": str(document.id),
         "filename": document.original_filename,
@@ -675,18 +673,18 @@ async def get_documents(
     current_user: User = Depends(get_current_user)
 ):
     """Get list of documents, filtered by uploader (only show documents uploaded by current user)"""
-    
+
     query = {}
     if case_id:
         query["case_id"] = case_id
     if document_type:
         query["document_type"] = document_type
-    
+
     # Filter by uploaded_by - users can only see their own documents
     query["uploaded_by"] = current_user.username
-    
+
     documents = await CaseDocument.find(query).to_list()
-    
+
     return [
         {
             "id": str(doc.id),
@@ -708,21 +706,21 @@ async def download_document(
     current_user: User = Depends(get_current_user)
 ):
     """Download a document file from MongoDB"""
-    
+
     document = await CaseDocument.get(document_id)
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     # Check permissions - users can only download their own documents
     if document.uploaded_by != current_user.username:
         raise HTTPException(status_code=403, detail="Access denied. You can only access your own documents.")
-    
+
     # Decode base64 content back to binary
     try:
         file_content = base64.b64decode(document.file_content)
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error decoding file content")
-    
+
     # Return file content as response with attachment disposition (forces download)
     return Response(
         content=file_content,
@@ -738,21 +736,21 @@ async def preview_document(
     current_user: User = Depends(get_current_user)
 ):
     """Preview a document file in browser (inline display)"""
-    
+
     document = await CaseDocument.get(document_id)
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     # Check permissions - users can only preview their own documents
     if document.uploaded_by != current_user.username:
         raise HTTPException(status_code=403, detail="Access denied. You can only access your own documents.")
-    
+
     # Decode base64 content back to binary
     try:
         file_content = base64.b64decode(document.file_content)
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error decoding file content")
-    
+
     # Return file content as response with inline disposition (shows in browser)
     return Response(
         content=file_content,
@@ -768,21 +766,21 @@ async def delete_document(
     current_user: User = Depends(get_current_user)
 ):
     """Delete a document from MongoDB"""
-    
+
     document = await CaseDocument.get(document_id)
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     # Check permissions - users can only delete their own documents
     if document.uploaded_by != current_user.username:
         raise HTTPException(
-            status_code=403, 
+            status_code=403,
             detail="Access denied. You can only delete your own documents."
         )
-    
+
     # Delete document record from MongoDB (file content is stored in the document)
     await document.delete()
-    
+
     return {"message": "Document deleted successfully from MongoDB"}
 
 # AI-Powered Endpoints
@@ -792,10 +790,10 @@ async def classify_case_ai(
     current_user: User = Depends(get_current_user)
 ):
     """AI-powered case classification"""
-    
+
     if not AI_ENABLED:
         raise HTTPException(status_code=503, detail="AI services not available")
-    
+
     try:
         classification = await ai_service.classify_case(request.description, request.title)
         return {
@@ -813,10 +811,10 @@ async def analyze_document_ai(
     current_user: User = Depends(get_current_user)
 ):
     """AI-powered document analysis"""
-    
+
     if not AI_ENABLED:
         raise HTTPException(status_code=503, detail="AI services not available")
-    
+
     try:
         analysis = await ai_service.analyze_document_content(request.content, request.filename)
         return {
@@ -834,20 +832,20 @@ async def find_similar_cases_ai(
     current_user: User = Depends(get_current_user)
 ):
     """Find similar cases using AI"""
-    
+
     if not AI_ENABLED:
         raise HTTPException(status_code=503, detail="AI services not available")
-    
+
     try:
         # Get all cases for similarity comparison
         all_cases = await Case.find().to_list()
         similar_cases = await ai_service.find_similar_cases(
-            request.description, 
-            request.title, 
+            request.description,
+            request.title,
             limit=request.limit,
             all_cases=all_cases
         )
-        
+
         return {
             "success": True,
             "similar_cases": similar_cases,
@@ -864,16 +862,16 @@ async def get_case_insights(
     current_user: User = Depends(get_current_user)
 ):
     """Get AI-generated insights for a case"""
-    
+
     if not AI_ENABLED:
         raise HTTPException(status_code=503, detail="AI services not available")
-    
+
     try:
         # Get case details
         case = await Case.get(case_id)
         if not case:
             raise HTTPException(status_code=404, detail="Case not found")
-        
+
         # Convert case to dict format
         case_data = {
             "id": str(case.id),
@@ -883,12 +881,12 @@ async def get_case_insights(
             "status": case.status,
             "priority": case.priority
         }
-        
+
         # Get all cases for similarity comparison
         all_cases = await Case.find().to_list()
-        
+
         insights = await ai_service.generate_case_insights(case_data, all_cases)
-        
+
         return {
             "success": True,
             "insights": insights,
@@ -907,20 +905,20 @@ async def smart_create_case_suggestions(
     current_user: User = Depends(get_current_user)
 ):
     """Get AI suggestions for creating a new case"""
-    
+
     if not AI_ENABLED:
         raise HTTPException(status_code=503, detail="AI services not available")
-    
+
     try:
         # Classify the potential case
         classification = await ai_service.classify_case(description, title)
-        
+
         # Find similar existing cases
         all_cases = await Case.find().to_list()
         similar_cases = await ai_service.find_similar_cases(
             description, title, limit=3, all_cases=all_cases
         )
-        
+
         # Generate suggestions
         suggestions = {
             "suggested_case_type": classification.get("case_type", "General"),
@@ -935,17 +933,17 @@ async def smart_create_case_suggestions(
                 "📅 Consider scheduling requirements"
             ]
         }
-        
+
         if similar_cases:
             suggestions["recommendations"].insert(1, f"🔍 {len(similar_cases)} similar cases found - review before creating")
-        
+
         return {
             "success": True,
             "suggestions": suggestions,
             "similar_cases": similar_cases[:3],  # Return top 3 similar cases
             "message": "Smart suggestions generated successfully"
         }
-        
+
     except Exception as e:
         logger.error(f"Smart case creation error: {e}")
         raise HTTPException(status_code=500, detail="Smart case creation failed")
@@ -955,7 +953,7 @@ async def get_ai_dashboard_analytics(
     current_user: User = Depends(get_current_user)
 ):
     """Get AI-powered dashboard analytics"""
-    
+
     if not AI_ENABLED:
         return {
             "success": False,
@@ -968,11 +966,11 @@ async def get_ai_dashboard_analytics(
                 "recent_ai_activities": []
             }
         }
-    
+
     try:
         # Get all cases
         all_cases = await Case.find().to_list()
-        
+
         if not all_cases:
             return {
                 "success": True,
@@ -984,21 +982,21 @@ async def get_ai_dashboard_analytics(
                     "recent_ai_activities": ["No cases available for analysis"]
                 }
             }
-        
+
         # Analyze case distribution
         case_types = {}
         priorities = {}
-        
+
         for case in all_cases:
             case_type = case.case_type or "Unknown"
             priority = case.priority or "medium"
-            
+
             case_types[case_type] = case_types.get(case_type, 0) + 1
             priorities[priority] = priorities.get(priority, 0) + 1
-        
+
         # Get top case types
         top_case_types = sorted(case_types.items(), key=lambda x: x[1], reverse=True)[:5]
-        
+
         # Recent AI activities simulation
         ai_activities = [
             f"Classified {len(all_cases)} cases automatically",
@@ -1006,7 +1004,7 @@ async def get_ai_dashboard_analytics(
             "Identified similar case patterns",
             "Updated case priority recommendations"
         ]
-        
+
         analytics = {
             "total_cases_analyzed": len(all_cases),
             "classification_accuracy": "85.2%",  # Simulated accuracy
@@ -1015,13 +1013,13 @@ async def get_ai_dashboard_analytics(
             "recent_ai_activities": ai_activities,
             "model_info": ai_service.model_info if ai_service.model_info else "Basic Classification Model"
         }
-        
+
         return {
             "success": True,
             "analytics": analytics,
             "message": "AI analytics retrieved successfully"
         }
-        
+
     except Exception as e:
         logger.error(f"AI dashboard analytics error: {e}")
         raise HTTPException(status_code=500, detail="AI analytics generation failed")
@@ -1030,23 +1028,23 @@ async def get_ai_dashboard_analytics(
 @app.get("/api/ai/status")
 async def get_ai_status():
     """Check AI services status"""
-    
+
     if not AI_ENABLED:
         return {
             "ai_enabled": False,
             "message": "AI services are not available",
             "features_available": []
         }
-    
+
     features = [
         "Case Classification",
-        "Document Analysis", 
+        "Document Analysis",
         "Similar Cases Search",
         "Case Insights Generation",
         "Smart Case Creation",
         "Dashboard Analytics"
     ]
-    
+
     return {
         "ai_enabled": True,
         "message": "AI services are running",
@@ -1060,14 +1058,14 @@ async def get_case_documents(
     current_user: User = Depends(get_current_user)
 ):
     """Get all documents for a specific case"""
-    
+
     # Verify case exists
     case = await Case.get(case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
-    
+
     documents = await CaseDocument.find({"case_id": case_id}).to_list()
-    
+
     return [
         {
             "id": str(doc.id),
@@ -1084,7 +1082,7 @@ async def get_case_documents(
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     print("🤖 Starting DCM System - AI-Powered MongoDB Edition")
     print("💾 Database: MongoDB Atlas")
     print("🧠 AI Features: Enabled" if AI_ENABLED else "🧠 AI Features: Disabled")
@@ -1095,7 +1093,7 @@ if __name__ == "__main__":
     print("   - judge1 / demo123 (Judge)")
     print("   - clerk1 / demo123 (Clerk)")
     print("   - lawyer1 / demo123 (Lawyer)")
-    
+
     if AI_ENABLED:
         print("🚀 AI Features Available:")
         print("   - 🏷️  Smart Case Classification")
@@ -1104,5 +1102,5 @@ if __name__ == "__main__":
         print("   - 💡 Case Insights Generation")
         print("   - 📊 AI Dashboard Analytics")
     print()
-    
+
     uvicorn.run(app, host="127.0.0.1", port=8001)

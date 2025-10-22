@@ -3,19 +3,21 @@ Intelligent Case Ingestion Service
 Automatically detects case type, priority, and DCM track from case documents
 """
 
-from typing import Dict, List, Optional
-import re
-from datetime import datetime, date
-from pymongo import MongoClient
-from app.core.config import settings
 import json
+import re
+from datetime import date, datetime
+from typing import Dict, List, Optional
+
+from pymongo import MongoClient
+
+from app.core.config import settings
 
 
 class CaseIngestionService:
     """
     Service to automatically ingest case files and classify them
     """
-    
+
     # Keywords for case type detection
     CASE_TYPE_KEYWORDS = {
         "CRIMINAL": [
@@ -52,7 +54,7 @@ class CaseIngestionService:
             "high court", "judicial review", "ultra vires"
         ]
     }
-    
+
     # Keywords for priority detection
     PRIORITY_KEYWORDS = {
         "URGENT": [
@@ -74,7 +76,7 @@ class CaseIngestionService:
             "mutual consent", "minimal", "nominal"
         ]
     }
-    
+
     # BNS Section patterns
     BNS_SECTIONS = {
         "Section 103": ["murder", "homicide", "culpable homicide"],
@@ -87,7 +89,7 @@ class CaseIngestionService:
         "Section 376": ["rape", "sexual assault"],
         "Section 498A": ["cruelty", "dowry", "matrimonial cruelty"],
     }
-    
+
     def __init__(self):
         """Initialize the ingestion service"""
         mongo_uri = settings.MONGODB_URL if settings.MONGODB_URL else \
@@ -95,82 +97,82 @@ class CaseIngestionService:
         self.client = MongoClient(mongo_uri)
         self.db = self.client[settings.MONGODB_DATABASE]
         self.cases_collection = self.db.cases
-    
+
     def detect_case_type(self, text: str) -> str:
         """
         Detect case type based on keywords in text
         """
         text_lower = text.lower()
         scores = {}
-        
+
         for case_type, keywords in self.CASE_TYPE_KEYWORDS.items():
             score = sum(1 for keyword in keywords if keyword in text_lower)
             scores[case_type] = score
-        
+
         # Return type with highest score, default to CIVIL if no match
         if max(scores.values()) == 0:
             return "CIVIL"
-        
+
         return max(scores, key=scores.get)
-    
+
     def detect_priority(self, text: str) -> str:
         """
         Detect case priority based on keywords
         """
         text_lower = text.lower()
-        
+
         # Check in order: URGENT -> HIGH -> MEDIUM -> LOW
         for priority, keywords in self.PRIORITY_KEYWORDS.items():
             if any(keyword in text_lower for keyword in keywords):
                 return priority
-        
+
         return "MEDIUM"  # Default priority
-    
+
     def detect_bns_section(self, text: str) -> Optional[str]:
         """
         Detect relevant BNS section from text
         """
         text_lower = text.lower()
-        
+
         # First check for explicit section mentions
         section_pattern = r'section\s+(\d+[a-z]*)'
         matches = re.findall(section_pattern, text_lower)
         if matches:
             return f"Section {matches[0].upper()}"
-        
+
         # Then check keyword-based detection
         for section, keywords in self.BNS_SECTIONS.items():
             if any(keyword in text_lower for keyword in keywords):
                 return section
-        
+
         return None
-    
+
     def detect_track(self, text: str, case_type: str) -> str:
         """
         Determine DCM track (FAST/REGULAR/COMPLEX) based on case complexity
         """
         text_lower = text.lower()
-        
+
         # Fast track indicators
         fast_keywords = [
             "mutual consent", "uncontested", "simple", "routine", "minor",
             "summary", "petty", "traffic", "bail", "interim"
         ]
-        
+
         # Complex track indicators
         complex_keywords = [
             "murder", "multiple accused", "conspiracy", "organized crime",
             "appeal", "revision", "complex", "international", "corporate fraud",
             "constitutional", "pil", "corruption", "multiple parties"
         ]
-        
+
         if any(kw in text_lower for kw in fast_keywords):
             return "FAST"
         elif any(kw in text_lower for kw in complex_keywords):
             return "COMPLEX"
         else:
             return "REGULAR"
-    
+
     def estimate_duration(self, track: str) -> int:
         """
         Estimate hearing duration based on track
@@ -181,23 +183,23 @@ class CaseIngestionService:
             "COMPLEX": 180
         }
         return durations.get(track, 90)
-    
+
     def extract_keywords(self, text: str) -> List[str]:
         """
         Extract relevant keywords from case text
         """
         text_lower = text.lower()
         keywords = set()
-        
+
         # Extract all keywords that match from our dictionaries
         for case_type_keywords in self.CASE_TYPE_KEYWORDS.values():
             keywords.update([kw for kw in case_type_keywords if kw in text_lower])
-        
+
         for priority_keywords in self.PRIORITY_KEYWORDS.values():
             keywords.update([kw for kw in priority_keywords if kw in text_lower])
-        
+
         return list(keywords)[:10]  # Limit to top 10 keywords
-    
+
     def generate_case_number(self, case_type: str) -> str:
         """
         Generate unique case number
@@ -210,36 +212,36 @@ class CaseIngestionService:
             "COMMERCIAL": "COM",
             "CONSTITUTIONAL": "CON"
         }
-        
+
         code = type_codes.get(case_type, "MIS")
-        
+
         # Get count of cases of this type in current year
         count = self.cases_collection.count_documents({
             "case_type": case_type,
             "filing_date": {"$regex": f"^{year}"}
         })
-        
+
         return f"{code}/{year}/{str(count + 1).zfill(4)}"
-    
-    def ingest_case(self, title: str, description: str, 
+
+    def ingest_case(self, title: str, description: str,
                    filing_date: Optional[date] = None,
                    additional_info: Optional[Dict] = None) -> Dict:
         """
         Main method to ingest a new case with automatic classification
-        
+
         Args:
             title: Case title/headline
             description: Full case description/synopsis
             filing_date: Date case was filed (defaults to today)
             additional_info: Any additional metadata
-        
+
         Returns:
             Dictionary with case details and classification results
         """
-        
+
         # Combine title and description for analysis
         full_text = f"{title} {description}"
-        
+
         # Automatic classification
         case_type = self.detect_case_type(full_text)
         priority = self.detect_priority(full_text)
@@ -248,7 +250,7 @@ class CaseIngestionService:
         keywords = self.extract_keywords(full_text)
         duration = self.estimate_duration(track)
         case_number = self.generate_case_number(case_type)
-        
+
         # Build case document
         case_doc = {
             "case_number": case_number,
@@ -266,19 +268,19 @@ class CaseIngestionService:
             "updated_at": datetime.utcnow().isoformat(),
             "auto_classified": True  # Flag to indicate auto-classification
         }
-        
+
         # Add BNS section if detected
         if bns_section:
             case_doc["bns_section"] = bns_section
-        
+
         # Merge additional info if provided
         if additional_info:
             case_doc.update(additional_info)
-        
+
         # Insert into database
         result = self.cases_collection.insert_one(case_doc)
         case_doc["_id"] = str(result.inserted_id)
-        
+
         return {
             "success": True,
             "case_id": str(result.inserted_id),
@@ -292,14 +294,14 @@ class CaseIngestionService:
             },
             "case_details": case_doc
         }
-    
+
     def ingest_bulk_cases(self, cases: List[Dict]) -> Dict:
         """
         Ingest multiple cases at once
-        
+
         Args:
             cases: List of dicts with 'title' and 'description' keys
-        
+
         Returns:
             Summary of ingestion results
         """
@@ -309,7 +311,7 @@ class CaseIngestionService:
             "failed": 0,
             "cases": []
         }
-        
+
         for case_data in cases:
             try:
                 result = self.ingest_case(
@@ -327,13 +329,13 @@ class CaseIngestionService:
                     "error": str(e),
                     "title": case_data.get("title", "Unknown")
                 })
-        
+
         return results
-    
+
     def ingest_from_json_file(self, filepath: str) -> Dict:
         """
         Ingest cases from a JSON file
-        
+
         JSON format should be:
         [
             {"title": "...", "description": "...", "filing_date": "2024-01-01"},
@@ -343,18 +345,18 @@ class CaseIngestionService:
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
                 cases = json.load(f)
-            
+
             if not isinstance(cases, list):
                 cases = [cases]
-            
+
             return self.ingest_bulk_cases(cases)
-            
+
         except Exception as e:
             return {
                 "success": False,
                 "error": str(e)
             }
-    
+
     def __del__(self):
         """Close MongoDB connection"""
         if hasattr(self, 'client'):

@@ -4,14 +4,15 @@ Advanced Analytics Service for Enhanced Dashboard
 Provides comprehensive analytics for the DCM system including AI insights
 """
 
-from typing import Dict, List
-from datetime import datetime, timedelta
-from collections import defaultdict, Counter
 import random
+from collections import Counter, defaultdict
+from datetime import datetime, timedelta
+from typing import Dict, List
+
 
 class AdvancedAnalyticsService:
     """Advanced analytics service for comprehensive system insights"""
-    
+
     def __init__(self):
         self.analytics_data = {
             'predictions': [],
@@ -20,10 +21,10 @@ class AdvancedAnalyticsService:
             'system_health': {}
         }
         self.initialize_analytics()
-    
+
     def initialize_analytics(self):
         """Initialize analytics with sample data for demonstration"""
-        
+
         # Sample prediction data
         sample_predictions = [
             {
@@ -39,9 +40,9 @@ class AdvancedAnalyticsService:
             }
             for i in range(50)
         ]
-        
+
         self.analytics_data['predictions'] = sample_predictions
-        
+
         # Performance metrics
         self.analytics_data['performance_metrics'] = {
             'accuracy_rate': 0.847,
@@ -53,7 +54,7 @@ class AdvancedAnalyticsService:
             'uptime': 99.7,  # percentage
             'total_processed': len(sample_predictions)
         }
-        
+
         # Usage statistics
         self.analytics_data['usage_statistics'] = {
             'daily_active_users': 47,
@@ -63,35 +64,35 @@ class AdvancedAnalyticsService:
             'average_session_duration': 23.5,  # minutes
             'user_satisfaction': 4.3  # out of 5
         }
-    
+
     def get_real_time_metrics(self) -> Dict:
         """Get real-time system metrics for dashboard"""
-        
+
         current_time = datetime.now()
-        
+
         # Calculate recent activity (last 24 hours)
         recent_predictions = [
             p for p in self.analytics_data['predictions']
             if (current_time - p['timestamp']).total_seconds() < 86400
         ]
-        
+
         # Confidence distribution
         confidence_dist = {
             'high': len([p for p in recent_predictions if p['confidence'] >= 0.8]),
             'medium': len([p for p in recent_predictions if 0.6 <= p['confidence'] < 0.8]),
             'low': len([p for p in recent_predictions if p['confidence'] < 0.6])
         }
-        
+
         # Case type distribution
         case_types = Counter([p['case_type'] for p in recent_predictions])
-        
+
         # Complexity analysis
         complexity_dist = Counter([p['complexity'] for p in recent_predictions])
-        
+
         # Performance trends
         avg_confidence = sum([p['confidence'] for p in recent_predictions]) / len(recent_predictions) if recent_predictions else 0
         avg_processing_time = sum([p['processing_time'] for p in recent_predictions]) / len(recent_predictions) if recent_predictions else 0
-        
+
         return {
             'overview': {
                 'total_predictions_24h': len(recent_predictions),
@@ -107,58 +108,58 @@ class AdvancedAnalyticsService:
             'accuracy_trend': self._generate_accuracy_trend(),
             'usage_patterns': self._analyze_usage_patterns()
         }
-    
+
     def _get_trending_sections(self, predictions: List[Dict]) -> List[Dict]:
         """Get trending BNS sections"""
         section_counts = Counter([p['predicted_section'] for p in predictions])
-        
+
         trending = []
         for section, count in section_counts.most_common(5):
             avg_confidence = sum([
-                p['confidence'] for p in predictions 
+                p['confidence'] for p in predictions
                 if p['predicted_section'] == section
             ]) / count
-            
+
             trending.append({
                 'section': section,
                 'count': count,
                 'average_confidence': round(avg_confidence, 3),
                 'trend': 'up' if count > 3 else 'stable'
             })
-        
+
         return trending
-    
+
     def _generate_accuracy_trend(self) -> List[Dict]:
         """Generate accuracy trend data for charts"""
-        
+
         # Generate hourly accuracy data for last 24 hours
         trend_data = []
         current_time = datetime.now()
-        
+
         for i in range(24):
             hour_start = current_time - timedelta(hours=i)
             hour_predictions = [
                 p for p in self.analytics_data['predictions']
                 if abs((p['timestamp'] - hour_start).total_seconds()) < 3600
             ]
-            
+
             if hour_predictions:
                 high_conf = len([p for p in hour_predictions if p['confidence'] >= 0.8])
                 accuracy = (high_conf / len(hour_predictions)) * 100
             else:
                 accuracy = random.uniform(75, 90)  # Mock data
-            
+
             trend_data.append({
                 'hour': hour_start.strftime('%H:00'),
                 'accuracy': round(accuracy, 1),
                 'predictions_count': len(hour_predictions)
             })
-        
+
         return sorted(trend_data, key=lambda x: x['hour'])
-    
+
     def _analyze_usage_patterns(self) -> Dict:
         """Analyze system usage patterns"""
-        
+
         # Mock usage pattern analysis
         patterns = {
             'peak_hours': [9, 10, 11, 14, 15, 16],  # Business hours
@@ -174,12 +175,12 @@ class AdvancedAnalyticsService:
                 'database_connections': random.randint(25, 45)
             }
         }
-        
+
         return patterns
-    
+
     def get_ai_insights(self) -> Dict:
         """Generate AI-powered insights for the dashboard"""
-        
+
         insights = {
             'model_performance': {
                 'status': 'Excellent',
@@ -217,12 +218,12 @@ class AdvancedAnalyticsService:
                 'geographic_insights': ['Urban areas: 60% technology-related crimes']
             }
         }
-        
+
         return insights
-    
+
     def get_predictive_analytics(self) -> Dict:
         """Generate predictive analytics for court scheduling and workload"""
-        
+
         predictions = {
             'workload_forecast': {
                 'next_week': {
@@ -265,30 +266,30 @@ class AdvancedAnalyticsService:
                 ]
             }
         }
-        
+
         return predictions
-    
+
     def record_prediction(self, prediction_data: Dict):
         """Record a new prediction for analytics"""
-        
+
         prediction_data['timestamp'] = datetime.now()
         self.analytics_data['predictions'].append(prediction_data)
-        
+
         # Keep only last 1000 predictions to manage memory
         if len(self.analytics_data['predictions']) > 1000:
             self.analytics_data['predictions'] = self.analytics_data['predictions'][-1000:]
-    
+
     def get_performance_report(self) -> Dict:
         """Generate comprehensive performance report"""
-        
+
         current_time = datetime.now()
-        
+
         # Last 7 days analysis
         week_predictions = [
             p for p in self.analytics_data['predictions']
             if (current_time - p['timestamp']).days <= 7
         ]
-        
+
         report = {
             'summary': {
                 'report_period': '7 days',
@@ -317,16 +318,16 @@ class AdvancedAnalyticsService:
                 'Implement additional validation checks for low-confidence predictions'
             ]
         }
-        
+
         return report
-    
+
     def _analyze_by_case_type(self, predictions: List[Dict]) -> Dict:
         """Analyze predictions by case type"""
-        
+
         case_types = defaultdict(list)
         for p in predictions:
             case_types[p['case_type']].append(p['confidence'])
-        
+
         analysis = {}
         for case_type, confidences in case_types.items():
             analysis[case_type] = {
@@ -336,16 +337,16 @@ class AdvancedAnalyticsService:
                     len([c for c in confidences if c >= 0.8]) / len(confidences) * 100, 1
                 )
             }
-        
+
         return analysis
-    
+
     def _analyze_by_complexity(self, predictions: List[Dict]) -> Dict:
         """Analyze predictions by complexity level"""
-        
+
         complexity_levels = defaultdict(list)
         for p in predictions:
             complexity_levels[p['complexity']].append(p['confidence'])
-        
+
         analysis = {}
         for complexity, confidences in complexity_levels.items():
             analysis[complexity] = {
@@ -355,16 +356,16 @@ class AdvancedAnalyticsService:
                     len([c for c in confidences if c >= 0.7]) / len(confidences) * 100, 1
                 )
             }
-        
+
         return analysis
-    
+
     def _analyze_by_confidence(self, predictions: List[Dict]) -> Dict:
         """Analyze prediction distribution by confidence levels"""
-        
+
         high_conf = [p for p in predictions if p['confidence'] >= 0.8]
         medium_conf = [p for p in predictions if 0.6 <= p['confidence'] < 0.8]
         low_conf = [p for p in predictions if p['confidence'] < 0.6]
-        
+
         return {
             'high_confidence': {
                 'count': len(high_conf),

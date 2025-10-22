@@ -5,6 +5,6 @@ from .bns_assist import BNSAssistService, BNSSuggestion, bns_assist
 
 __all__ = [
     "BNSAssistService",
-    "BNSSuggestion", 
+    "BNSSuggestion",
     "bns_assist"
 ]

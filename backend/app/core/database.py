@@ -1,9 +1,8 @@
 """
 Database configuration and setup
 """
-from sqlmodel import create_engine, SQLModel, Session
 from app.core.config import settings
-
+from sqlmodel import Session, SQLModel, create_engine
 
 # Create database engine
 if settings.DATABASE_URL.startswith("sqlite"):

@@ -4,14 +4,16 @@ Provides dashboard data, metrics, and analytical reports
 Enhanced with advanced AI-powered analytics and real-time insights
 """
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session
+
 from app.core.database import get_session
 from app.core.security import get_current_user
 from app.models.user import User
-from app.services.analytics_service import analytics_service
 from app.services.advanced_analytics_service import get_analytics_service
-from datetime import datetime
+from app.services.analytics_service import analytics_service
 
 router = APIRouter()
 
@@ -25,14 +27,14 @@ async def get_dashboard_overview(
     """
     try:
         overview = analytics_service.get_dashboard_overview(session, current_user.id)
-        
+
         return {
             "status": "success",
             "data": overview,
             "timestamp": datetime.now().isoformat(),
             "generated_for": current_user.username
         }
-        
+
     except Exception as e:
         return {
             "status": "error",
@@ -51,7 +53,7 @@ async def get_case_analytics(
     """
     try:
         analytics = analytics_service.get_case_analytics(session, days)
-        
+
         return {
             "status": "success",
             "data": analytics,
@@ -59,10 +61,10 @@ async def get_case_analytics(
             "timestamp": datetime.now().isoformat(),
             "generated_for": current_user.username
         }
-        
+
     except Exception as e:
         return {
-            "status": "error", 
+            "status": "error",
             "message": f"Failed to generate case analytics: {str(e)}",
             "timestamp": datetime.now().isoformat()
         }
@@ -77,7 +79,7 @@ async def get_bns_analytics(
     """
     try:
         bns_analytics = analytics_service.get_bns_classification_analytics(session)
-        
+
         return {
             "status": "success",
             "data": bns_analytics,
@@ -85,7 +87,7 @@ async def get_bns_analytics(
             "generated_for": current_user.username,
             "note": "BNS analytics show AI model performance and legal insights"
         }
-        
+
     except Exception as e:
         return {
             "status": "error",
@@ -103,14 +105,14 @@ async def get_user_activity_analytics(
     """
     try:
         activity_analytics = analytics_service.get_user_activity_analytics(session)
-        
+
         return {
             "status": "success",
             "data": activity_analytics,
             "timestamp": datetime.now().isoformat(),
             "generated_for": current_user.username
         }
-        
+
     except Exception as e:
         return {
             "status": "error",
@@ -128,14 +130,14 @@ async def get_court_schedule_analytics(
     """
     try:
         schedule_analytics = analytics_service.get_court_schedule_analytics(session)
-        
+
         return {
             "status": "success",
             "data": schedule_analytics,
             "timestamp": datetime.now().isoformat(),
             "generated_for": current_user.username
         }
-        
+
     except Exception as e:
         return {
             "status": "error",
@@ -160,16 +162,16 @@ async def get_executive_summary(
             "quarterly": 90,
             "yearly": 365
         }
-        
+
         days = period_days.get(period, 30)
-        
+
         # Get all analytics
         dashboard = analytics_service.get_dashboard_overview(session, current_user.id)
         cases = analytics_service.get_case_analytics(session, days)
         bns = analytics_service.get_bns_classification_analytics(session)
         activity = analytics_service.get_user_activity_analytics(session)
         schedule = analytics_service.get_court_schedule_analytics(session)
-        
+
         executive_summary = {
             "report_info": {
                 "period": period,
@@ -198,7 +200,7 @@ async def get_executive_summary(
             ],
             "recommendations": [
                 "Continue monitoring BNS classification accuracy",
-                "Consider adding more courtrooms for high-demand periods", 
+                "Consider adding more courtrooms for high-demand periods",
                 "Implement automated case priority adjustment",
                 "Expand BNS training dataset for emerging crime patterns"
             ],
@@ -210,14 +212,14 @@ async def get_executive_summary(
                 "court_schedule": schedule
             }
         }
-        
+
         return {
             "status": "success",
             "data": executive_summary,
             "report_type": "executive_summary",
             "timestamp": datetime.now().isoformat()
         }
-        
+
     except Exception as e:
         return {
             "status": "error",
@@ -236,7 +238,7 @@ async def export_dashboard_data(
     """
     try:
         dashboard_data = analytics_service.get_dashboard_overview(session, current_user.id)
-        
+
         if format == "json":
             return {
                 "status": "success",
@@ -248,11 +250,11 @@ async def export_dashboard_data(
                     "record_count": len(str(dashboard_data))
                 }
             }
-        
+
         # For CSV format, we'd implement CSV conversion here
         # For now, return JSON with note about CSV
         return {
-            "status": "success", 
+            "status": "success",
             "format": "json",
             "data": dashboard_data,
             "note": "CSV export functionality coming soon",
@@ -261,7 +263,7 @@ async def export_dashboard_data(
                 "exported_by": current_user.username
             }
         }
-        
+
     except Exception as e:
         return {
             "status": "error",
@@ -281,18 +283,18 @@ async def get_real_time_metrics(
         # Get advanced analytics
         advanced_analytics = get_analytics_service()
         advanced_metrics = advanced_analytics.get_real_time_metrics()
-        
+
         # Active user sessions (mock data for now)
         active_sessions = 12
-        
+
         # System load (mock data)
         system_load = {
             "cpu_usage": "23%",
-            "memory_usage": "45%", 
+            "memory_usage": "45%",
             "database_connections": 8,
             "api_response_time": "145ms"
         }
-        
+
         # Recent activities (last 5)
         recent_activities = [
             {"time": "2 minutes ago", "action": "New case filed", "user": "clerk_1"},
@@ -301,7 +303,7 @@ async def get_real_time_metrics(
             {"time": "12 minutes ago", "action": "Case updated", "user": "lawyer_3"},
             {"time": "15 minutes ago", "action": "User login", "user": "clerk_2"}
         ]
-        
+
         # Combine traditional and advanced metrics
         combined_metrics = {
             "active_sessions": active_sessions,
@@ -318,14 +320,14 @@ async def get_real_time_metrics(
                 "case_trends": advanced_metrics["case_type_distribution"]
             }
         }
-        
+
         return {
             "status": "success",
             "timestamp": datetime.now().isoformat(),
             "real_time_metrics": combined_metrics,
             "refresh_interval": "30 seconds"
         }
-        
+
     except Exception as e:
         return {
             "status": "error",
@@ -343,7 +345,7 @@ async def get_ai_insights(
     try:
         advanced_analytics = get_analytics_service()
         insights = advanced_analytics.get_ai_insights()
-        
+
         return {
             "status": "success",
             "insights": insights,
@@ -367,7 +369,7 @@ async def get_predictive_analytics(
     try:
         advanced_analytics = get_analytics_service()
         predictions = advanced_analytics.get_predictive_analytics()
-        
+
         return {
             "status": "success",
             "predictions": predictions,
@@ -392,13 +394,13 @@ async def get_enhanced_dashboard_data(
     try:
         # Get traditional analytics
         dashboard = analytics_service.get_dashboard_overview(session, current_user.id)
-        
+
         # Get advanced analytics
         advanced_analytics = get_analytics_service()
         real_time_metrics = advanced_analytics.get_real_time_metrics()
         ai_insights = advanced_analytics.get_ai_insights()
         predictive_analytics = advanced_analytics.get_predictive_analytics()
-        
+
         # Combine all data for enhanced dashboard
         enhanced_data = {
             "overview": {
@@ -422,7 +424,7 @@ async def get_enhanced_dashboard_data(
                 "workload_forecast": predictive_analytics["workload_forecast"]
             }
         }
-        
+
         return {
             "status": "success",
             "data": enhanced_data,
@@ -430,7 +432,7 @@ async def get_enhanced_dashboard_data(
             "generated_for": current_user.username,
             "dashboard_type": "enhanced_ai_powered"
         }
-        
+
     except Exception as e:
         return {
             "status": "error",

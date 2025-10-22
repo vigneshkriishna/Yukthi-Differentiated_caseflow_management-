@@ -1,11 +1,11 @@
 """
 Router initialization
 """
-from . import auth, cases, schedule, reports, nlp
+from . import auth, cases, nlp, reports, schedule
 
 __all__ = [
     "auth",
-    "cases", 
+    "cases",
     "schedule",
     "reports",
     "nlp"
