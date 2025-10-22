@@ -1,0 +1,57 @@
+[tool.ruff]
+# Exclude development and training scripts from linting
+exclude = [
+    "__pycache__",
+    ".git",
+    ".venv",
+    "venv",
+    "*.egg-info",
+    # Development and training scripts
+    "backend/create_large_dataset.py",
+    "backend/train_enhanced_bns_model.py",
+    "backend/train_with_database_cases.py",
+    "backend/check_case_count.py",
+    "backend/seed_basic_data.py",
+    "backend/seed_data.py",
+    "backend/setup.py",
+    "backend/fix_lint_errors.py",
+    "backend/test_enhanced_integration.py",
+    "backend/demo_case_ingestion.py",
+]
+
+# Target Python 3.8+
+target-version = "py38"
+
+# Line length
+line-length = 120
+
+[tool.ruff.lint]
+# Enable recommended rules
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+]
+
+# Ignore specific rules that are too strict for this project
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Allow star imports in __init__.py files
+"__init__.py" = ["F401", "F403"]
+
+# Training and model files can have unused imports (for experiments)
+"backend/app/services/nlp/*.py" = ["F401", "F841"]
+
+# Service files - allow some flexibility
+"backend/app/services/*.py" = ["F541"]  # f-strings without placeholders
+
+[tool.ruff.format]
+# Use double quotes
+quote-style = "double"
+
+# Indent with spaces
+indent-style = "space"
