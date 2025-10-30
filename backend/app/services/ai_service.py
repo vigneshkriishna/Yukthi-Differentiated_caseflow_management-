@@ -11,6 +11,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+# Import model compatibility layer FIRST (before pickle loading)
+try:
+    from .model_compat import EnhancedBNSClassifierV2
+except ImportError:
+    pass
+
 # ML and NLP imports
 try:
     import nltk

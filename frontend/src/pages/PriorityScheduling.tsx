@@ -45,7 +45,7 @@ interface SchedulingResult {
   };
 }
 
-const API_BASE = 'http://localhost:8001';
+const API_BASE = 'http://localhost:8000';
 
 const PriorityScheduling: React.FC = () => {
   const navigate = useNavigate();

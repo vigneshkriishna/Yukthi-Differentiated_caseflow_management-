@@ -44,11 +44,19 @@ const Cases: React.FC = () => {
   const loadCases = async () => {
     try {
       setLoading(true)
+      console.log('🔍 Loading cases...')
+      console.log('📡 Auth token:', localStorage.getItem('access_token') ? 'Present' : 'Missing')
       const response = await casesAPI.getAll()
+      console.log('✅ Cases response:', response)
       setCases(response.data)
     } catch (error: any) {
-      toast.error('Failed to load cases')
-      console.error('Error loading cases:', error)
+      console.error('❌ Error loading cases:', error)
+      console.error('Error details:', {
+        message: error.message,
+        status: error.status,
+        details: error.details
+      })
+      toast.error(`Failed to load cases: ${error.message || 'Unknown error'}`)
     } finally {
       setLoading(false)
     }

@@ -47,7 +47,7 @@ const AIWidget: React.FC = () => {
         return;
       }
 
-      const response = await fetch('http://127.0.0.1:8001/api/ai/dashboard-analytics', {
+      const response = await fetch('http://localhost:8000/api/ai/dashboard-analytics', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

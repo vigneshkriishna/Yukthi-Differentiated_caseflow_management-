@@ -73,7 +73,7 @@ const AIDashboard: React.FC = () => {
 
   const loadAIAnalytics = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8001/api/ai/dashboard-analytics', {
+      const response = await fetch('http://localhost:8000/api/ai/dashboard-analytics', {
         headers: getAuthHeaders()
       });
 
@@ -91,7 +91,7 @@ const AIDashboard: React.FC = () => {
     
     setClassifyLoading(true);
     try {
-      const response = await fetch('http://127.0.0.1:8001/api/ai/classify-case', {
+      const response = await fetch('http://localhost:8000/api/ai/classify-case', {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(classificationInput)
@@ -113,7 +113,7 @@ const AIDashboard: React.FC = () => {
     
     setAnalyzeLoading(true);
     try {
-      const response = await fetch('http://127.0.0.1:8001/api/ai/analyze-document', {
+      const response = await fetch('http://localhost:8000/api/ai/analyze-document', {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -138,7 +138,7 @@ const AIDashboard: React.FC = () => {
     
     setSimilarLoading(true);
     try {
-      const response = await fetch('http://127.0.0.1:8001/api/ai/similar-cases', {
+      const response = await fetch('http://localhost:8000/api/ai/similar-cases', {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(similarCasesQuery)

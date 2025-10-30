@@ -37,7 +37,7 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({
       
       try {
         const response = await fetch(
-          `http://localhost:8001/api/documents/${document.id}/preview`,
+          `http://localhost:8000/api/documents/${document.id}/preview`,
           {
             headers: {
               'Authorization': `Bearer ${token}`

@@ -6,6 +6,7 @@ Secure, production-ready Digital Case Management System with AI Features
 
 import base64
 import logging
+import sys
 import uuid
 from datetime import datetime, timedelta
 from enum import Enum
@@ -13,6 +14,15 @@ from pathlib import Path
 from typing import Optional
 
 from beanie import Document, init_beanie
+
+# Import model compatibility layer FIRST and register in __main__
+try:
+    from app.services.model_compat import EnhancedBNSClassifierV2
+    # Register the class so pickle can find it when loading
+    sys.modules[__name__].EnhancedBNSClassifierV2 = EnhancedBNSClassifierV2
+    globals()['EnhancedBNSClassifierV2'] = EnhancedBNSClassifierV2
+except ImportError:
+    pass
 
 # Import our configuration
 from config import config
@@ -65,6 +75,7 @@ class CaseStatus(str, Enum):
     FILED = "FILED"  # Added for compatibility with generated dataset
     UNDER_REVIEW = "UNDER_REVIEW"
     SCHEDULED = "SCHEDULED"  # Added for hearing scheduled cases
+    HEARING = "HEARING"  # Added for cases in hearing
     HEARING_SCHEDULED = "HEARING_SCHEDULED"
     JUDGMENT_RESERVED = "JUDGMENT_RESERVED"
     DISPOSED = "DISPOSED"
@@ -466,23 +477,33 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
 # Cases routes
 @app.get("/api/cases")
 async def get_cases(current_user: User = Depends(get_current_user)):
-    cases = await Case.find().to_list()
-    return [
-        {
-            "id": str(case.id),
-            "case_number": case.case_number,
-            "title": case.title,
-            "description": case.description,
-            "case_type": case.case_type,
-            "status": case.status,
-            "priority": case.priority,
-            "assigned_judge": case.assigned_judge,
-            "created_by": case.created_by,
-            "created_at": case.created_at,
-            "updated_at": case.updated_at
-        }
-        for case in cases
-    ]
+    try:
+        logger.info(f"📋 Fetching cases for user: {current_user.username}")
+        cases = await Case.find().to_list()
+        logger.info(f"📊 Found {len(cases)} cases in database")
+        
+        result = [
+            {
+                "id": str(case.id),
+                "case_number": case.case_number,
+                "title": case.title,
+                "description": case.description,
+                "case_type": case.case_type,
+                "status": case.status.value if hasattr(case.status, 'value') else case.status,
+                "priority": case.priority,
+                "assigned_judge": case.assigned_judge,
+                "created_by": case.created_by,
+                "created_at": case.created_at.isoformat() if case.created_at else None,
+                "updated_at": case.updated_at.isoformat() if case.updated_at else None
+            }
+            for case in cases
+        ]
+        logger.info(f"✅ Returning {len(result)} cases to frontend")
+        return result
+    except Exception as e:
+        logger.error(f"❌ Error fetching cases: {e}")
+        logger.exception("Full traceback:")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/cases")
 async def create_case(case_data: CaseCreate, current_user: User = Depends(get_current_user)):

@@ -14,7 +14,7 @@ interface DocumentStats {
   topTypes: Array<{ type: string; count: number; percentage: number }>;
 }
 
-const API_BASE = 'http://localhost:8001';
+const API_BASE = 'http://localhost:8000';
 
 const DocumentStatsWidget: React.FC = () => {
   const [stats, setStats] = useState<DocumentStats | null>(null);

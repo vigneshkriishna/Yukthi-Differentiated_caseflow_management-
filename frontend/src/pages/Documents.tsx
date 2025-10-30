@@ -42,7 +42,7 @@ interface DocumentStats {
   recentUploads: number;
 }
 
-const API_BASE = 'http://localhost:8001';
+const API_BASE = 'http://localhost:8000';
 
 const Documents: React.FC = () => {
   const navigate = useNavigate();

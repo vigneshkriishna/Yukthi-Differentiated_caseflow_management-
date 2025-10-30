@@ -88,11 +88,11 @@ const NewCase: React.FC = () => {
       }
       
       console.log('🔍 AI Classification Request:')
-      console.log('  URL: http://127.0.0.1:8001/api/ai/classify-case')
+      console.log('  URL: http://localhost:8000/api/ai/classify-case')
       console.log('  Title:', formData.title)
       console.log('  Description:', formData.description)
       
-      const response = await fetch('http://127.0.0.1:8001/api/ai/classify-case', {
+      const response = await fetch('http://localhost:8000/api/ai/classify-case', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
